@@ -1,13 +1,11 @@
 """Support for HomeKit Controller humidifier."""
-from typing import List, Optional
+from __future__ import annotations
 
 from aiohomekit.model.characteristics import CharacteristicsTypes
 from aiohomekit.model.services import ServicesTypes
 
-from homeassistant.components.humidifier import HumidifierEntity
+from homeassistant.components.humidifier import HumidifierDeviceClass, HumidifierEntity
 from homeassistant.components.humidifier.const import (
-    DEVICE_CLASS_DEHUMIDIFIER,
-    DEVICE_CLASS_HUMIDIFIER,
     MODE_AUTO,
     MODE_NORMAL,
     SUPPORT_MODES,
@@ -35,20 +33,16 @@ HA_MODE_TO_HK = {
 class HomeKitHumidifier(HomeKitEntity, HumidifierEntity):
     """Representation of a HomeKit Controller Humidifier."""
 
+    _attr_device_class = HumidifierDeviceClass.HUMIDIFIER
+
     def get_characteristic_types(self):
         """Define the homekit characteristics the entity cares about."""
         return [
             CharacteristicsTypes.ACTIVE,
-            CharacteristicsTypes.RELATIVE_HUMIDITY_CURRENT,
             CharacteristicsTypes.CURRENT_HUMIDIFIER_DEHUMIDIFIER_STATE,
             CharacteristicsTypes.TARGET_HUMIDIFIER_DEHUMIDIFIER_STATE,
             CharacteristicsTypes.RELATIVE_HUMIDITY_HUMIDIFIER_THRESHOLD,
         ]
-
-    @property
-    def device_class(self) -> str:
-        """Return the device class of the device."""
-        return DEVICE_CLASS_HUMIDIFIER
 
     @property
     def supported_features(self):
@@ -69,14 +63,14 @@ class HomeKitHumidifier(HomeKitEntity, HumidifierEntity):
         await self.async_put_characteristics({CharacteristicsTypes.ACTIVE: False})
 
     @property
-    def target_humidity(self) -> Optional[int]:
+    def target_humidity(self) -> int | None:
         """Return the humidity we try to reach."""
         return self.service.value(
             CharacteristicsTypes.RELATIVE_HUMIDITY_HUMIDIFIER_THRESHOLD
         )
 
     @property
-    def mode(self) -> Optional[str]:
+    def mode(self) -> str | None:
         """Return the current mode, e.g., home, auto, baby.
 
         Requires SUPPORT_MODES.
@@ -87,7 +81,7 @@ class HomeKitHumidifier(HomeKitEntity, HumidifierEntity):
         return MODE_AUTO if mode == 1 else MODE_NORMAL
 
     @property
-    def available_modes(self) -> Optional[List[str]]:
+    def available_modes(self) -> list[str] | None:
         """Return a list of available modes.
 
         Requires SUPPORT_MODES.
@@ -140,21 +134,17 @@ class HomeKitHumidifier(HomeKitEntity, HumidifierEntity):
 class HomeKitDehumidifier(HomeKitEntity, HumidifierEntity):
     """Representation of a HomeKit Controller Humidifier."""
 
+    _attr_device_class = HumidifierDeviceClass.DEHUMIDIFIER
+
     def get_characteristic_types(self):
         """Define the homekit characteristics the entity cares about."""
         return [
             CharacteristicsTypes.ACTIVE,
-            CharacteristicsTypes.RELATIVE_HUMIDITY_CURRENT,
             CharacteristicsTypes.CURRENT_HUMIDIFIER_DEHUMIDIFIER_STATE,
             CharacteristicsTypes.TARGET_HUMIDIFIER_DEHUMIDIFIER_STATE,
             CharacteristicsTypes.RELATIVE_HUMIDITY_HUMIDIFIER_THRESHOLD,
             CharacteristicsTypes.RELATIVE_HUMIDITY_DEHUMIDIFIER_THRESHOLD,
         ]
-
-    @property
-    def device_class(self) -> str:
-        """Return the device class of the device."""
-        return DEVICE_CLASS_DEHUMIDIFIER
 
     @property
     def supported_features(self):
@@ -175,14 +165,14 @@ class HomeKitDehumidifier(HomeKitEntity, HumidifierEntity):
         await self.async_put_characteristics({CharacteristicsTypes.ACTIVE: False})
 
     @property
-    def target_humidity(self) -> Optional[int]:
+    def target_humidity(self) -> int | None:
         """Return the humidity we try to reach."""
         return self.service.value(
             CharacteristicsTypes.RELATIVE_HUMIDITY_DEHUMIDIFIER_THRESHOLD
         )
 
     @property
-    def mode(self) -> Optional[str]:
+    def mode(self) -> str | None:
         """Return the current mode, e.g., home, auto, baby.
 
         Requires SUPPORT_MODES.
@@ -193,7 +183,7 @@ class HomeKitDehumidifier(HomeKitEntity, HumidifierEntity):
         return MODE_AUTO if mode == 1 else MODE_NORMAL
 
     @property
-    def available_modes(self) -> Optional[List[str]]:
+    def available_modes(self) -> list[str] | None:
         """Return a list of available modes.
 
         Requires SUPPORT_MODES.

@@ -4,11 +4,13 @@ from google_nest_sdm.event import EventMessage
 import pytest
 
 import homeassistant.components.automation as automation
+from homeassistant.components.device_automation import DeviceAutomationType
 from homeassistant.components.device_automation.exceptions import (
     InvalidDeviceAutomationConfig,
 )
 from homeassistant.components.nest import DOMAIN
 from homeassistant.components.nest.events import NEST_EVENT
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.setup import async_setup_component
 from homeassistant.util.dt import utcnow
 
@@ -101,7 +103,7 @@ async def test_get_triggers(hass):
     )
     await async_setup_camera(hass, {DEVICE_ID: camera})
 
-    device_registry = await hass.helpers.device_registry.async_get_registry()
+    device_registry = dr.async_get(hass)
     device_entry = device_registry.async_get_device({("nest", DEVICE_ID)})
 
     expected_triggers = [
@@ -118,7 +120,9 @@ async def test_get_triggers(hass):
             "device_id": device_entry.id,
         },
     ]
-    triggers = await async_get_device_automations(hass, "trigger", device_entry.id)
+    triggers = await async_get_device_automations(
+        hass, DeviceAutomationType.TRIGGER, device_entry.id
+    )
     assert_lists_same(triggers, expected_triggers)
 
 
@@ -140,13 +144,15 @@ async def test_multiple_devices(hass):
     )
     await async_setup_camera(hass, {"device-id-1": camera1, "device-id-2": camera2})
 
-    registry = await hass.helpers.entity_registry.async_get_registry()
+    registry = er.async_get(hass)
     entry1 = registry.async_get("camera.camera_1")
     assert entry1.unique_id == "device-id-1-camera"
     entry2 = registry.async_get("camera.camera_2")
     assert entry2.unique_id == "device-id-2-camera"
 
-    triggers = await async_get_device_automations(hass, "trigger", entry1.device_id)
+    triggers = await async_get_device_automations(
+        hass, DeviceAutomationType.TRIGGER, entry1.device_id
+    )
     assert len(triggers) == 1
     assert triggers[0] == {
         "platform": "device",
@@ -155,7 +161,9 @@ async def test_multiple_devices(hass):
         "device_id": entry1.device_id,
     }
 
-    triggers = await async_get_device_automations(hass, "trigger", entry2.device_id)
+    triggers = await async_get_device_automations(
+        hass, DeviceAutomationType.TRIGGER, entry2.device_id
+    )
     assert len(triggers) == 1
     assert triggers[0] == {
         "platform": "device",
@@ -176,7 +184,7 @@ async def test_triggers_for_invalid_device_id(hass):
     )
     await async_setup_camera(hass, {DEVICE_ID: camera})
 
-    device_registry = await hass.helpers.device_registry.async_get_registry()
+    device_registry = dr.async_get(hass)
     device_entry = device_registry.async_get_device({("nest", DEVICE_ID)})
     assert device_entry is not None
 
@@ -190,7 +198,9 @@ async def test_triggers_for_invalid_device_id(hass):
     assert device_entry_2 is not None
 
     with pytest.raises(InvalidDeviceAutomationConfig):
-        await async_get_device_automations(hass, "trigger", device_entry_2.id)
+        await async_get_device_automations(
+            hass, DeviceAutomationType.TRIGGER, device_entry_2.id
+        )
 
 
 async def test_no_triggers(hass):
@@ -198,11 +208,13 @@ async def test_no_triggers(hass):
     camera = make_camera(device_id=DEVICE_ID, traits={})
     await async_setup_camera(hass, {DEVICE_ID: camera})
 
-    registry = await hass.helpers.entity_registry.async_get_registry()
+    registry = er.async_get(hass)
     entry = registry.async_get("camera.my_camera")
     assert entry.unique_id == "some-device-id-camera"
 
-    triggers = await async_get_device_automations(hass, "trigger", entry.device_id)
+    triggers = await async_get_device_automations(
+        hass, DeviceAutomationType.TRIGGER, entry.device_id
+    )
     assert triggers == []
 
 
@@ -288,7 +300,7 @@ async def test_subscriber_automation(hass, calls):
     )
     subscriber = await async_setup_camera(hass, {DEVICE_ID: camera})
 
-    device_registry = await hass.helpers.device_registry.async_get_registry()
+    device_registry = dr.async_get(hass)
     device_entry = device_registry.async_get_device({("nest", DEVICE_ID)})
 
     assert await setup_automation(hass, device_entry.id, "camera_motion")

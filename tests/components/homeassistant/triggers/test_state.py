@@ -8,6 +8,7 @@ import homeassistant.components.automation as automation
 from homeassistant.components.homeassistant.triggers import state as state_trigger
 from homeassistant.const import ATTR_ENTITY_ID, ENTITY_MATCH_ALL, SERVICE_TURN_OFF
 from homeassistant.core import Context
+from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 import homeassistant.util.dt as dt_util
 
@@ -55,6 +56,7 @@ async def test_if_fires_on_entity_change(hass, calls):
                                 "from_state.state",
                                 "to_state.state",
                                 "for",
+                                "id",
                             )
                         )
                     },
@@ -68,7 +70,7 @@ async def test_if_fires_on_entity_change(hass, calls):
     await hass.async_block_till_done()
     assert len(calls) == 1
     assert calls[0].context.parent_id == context.id
-    assert calls[0].data["some"] == "state - test.entity - hello - world - None"
+    assert calls[0].data["some"] == "state - test.entity - hello - world - None - 0"
 
     await hass.services.async_call(
         automation.DOMAIN,
@@ -77,6 +79,64 @@ async def test_if_fires_on_entity_change(hass, calls):
         blocking=True,
     )
     hass.states.async_set("test.entity", "planet")
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+
+
+async def test_if_fires_on_entity_change_uuid(hass, calls):
+    """Test for firing on entity change."""
+    context = Context()
+
+    registry = er.async_get(hass)
+    entry = registry.async_get_or_create(
+        "test", "hue", "1234", suggested_object_id="beer"
+    )
+
+    assert entry.entity_id == "test.beer"
+
+    hass.states.async_set("test.beer", "hello")
+    await hass.async_block_till_done()
+
+    assert await async_setup_component(
+        hass,
+        automation.DOMAIN,
+        {
+            automation.DOMAIN: {
+                "trigger": {"platform": "state", "entity_id": entry.id},
+                "action": {
+                    "service": "test.automation",
+                    "data_template": {
+                        "some": "{{ trigger.%s }}"
+                        % "}} - {{ trigger.".join(
+                            (
+                                "platform",
+                                "entity_id",
+                                "from_state.state",
+                                "to_state.state",
+                                "for",
+                                "id",
+                            )
+                        )
+                    },
+                },
+            }
+        },
+    )
+    await hass.async_block_till_done()
+
+    hass.states.async_set("test.beer", "world", context=context)
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+    assert calls[0].context.parent_id == context.id
+    assert calls[0].data["some"] == "state - test.beer - hello - world - None - 0"
+
+    await hass.services.async_call(
+        automation.DOMAIN,
+        SERVICE_TURN_OFF,
+        {ATTR_ENTITY_ID: ENTITY_MATCH_ALL},
+        blocking=True,
+    )
+    hass.states.async_set("test.beer", "planet")
     await hass.async_block_till_done()
     assert len(calls) == 1
 
@@ -105,7 +165,7 @@ async def test_if_fires_on_entity_change_with_from_filter(hass, calls):
 
 
 async def test_if_fires_on_entity_change_with_to_filter(hass, calls):
-    """Test for firing on entity change with no filter."""
+    """Test for firing on entity change with to filter."""
     assert await async_setup_component(
         hass,
         automation.DOMAIN,
@@ -123,6 +183,54 @@ async def test_if_fires_on_entity_change_with_to_filter(hass, calls):
     await hass.async_block_till_done()
 
     hass.states.async_set("test.entity", "world")
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+
+
+async def test_if_fires_on_entity_change_with_from_filter_all(hass, calls):
+    """Test for firing on entity change with filter."""
+    assert await async_setup_component(
+        hass,
+        automation.DOMAIN,
+        {
+            automation.DOMAIN: {
+                "trigger": {
+                    "platform": "state",
+                    "entity_id": "test.entity",
+                    "from": None,
+                },
+                "action": {"service": "test.automation"},
+            }
+        },
+    )
+    await hass.async_block_till_done()
+
+    hass.states.async_set("test.entity", "world")
+    hass.states.async_set("test.entity", "world", {"attribute": 5})
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+
+
+async def test_if_fires_on_entity_change_with_to_filter_all(hass, calls):
+    """Test for firing on entity change with to filter."""
+    assert await async_setup_component(
+        hass,
+        automation.DOMAIN,
+        {
+            automation.DOMAIN: {
+                "trigger": {
+                    "platform": "state",
+                    "entity_id": "test.entity",
+                    "to": None,
+                },
+                "action": {"service": "test.automation"},
+            }
+        },
+    )
+    await hass.async_block_till_done()
+
+    hass.states.async_set("test.entity", "world")
+    hass.states.async_set("test.entity", "world", {"attribute": 5})
     await hass.async_block_till_done()
     assert len(calls) == 1
 
@@ -506,7 +614,7 @@ async def test_if_fires_on_entity_change_with_for(hass, calls):
     await hass.async_block_till_done()
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=10))
     await hass.async_block_till_done()
-    assert 1 == len(calls)
+    assert len(calls) == 1
 
 
 async def test_if_fires_on_entity_change_with_for_without_to(hass, calls):
@@ -984,6 +1092,33 @@ async def test_if_fires_on_change_with_for_template_3(hass, calls):
     assert len(calls) == 1
 
 
+async def test_if_fires_on_change_with_for_template_4(hass, calls):
+    """Test for firing on change with for template."""
+    assert await async_setup_component(
+        hass,
+        automation.DOMAIN,
+        {
+            automation.DOMAIN: {
+                "trigger_variables": {"seconds": 5},
+                "trigger": {
+                    "platform": "state",
+                    "entity_id": "test.entity",
+                    "to": "world",
+                    "for": {"seconds": "{{ seconds }}"},
+                },
+                "action": {"service": "test.automation"},
+            }
+        },
+    )
+
+    hass.states.async_set("test.entity", "world")
+    await hass.async_block_till_done()
+    assert len(calls) == 0
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=10))
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+
+
 async def test_if_fires_on_change_from_with_for(hass, calls):
     """Test for firing on change with from/for."""
     assert await async_setup_component(
@@ -1189,6 +1324,94 @@ async def test_attribute_if_fires_on_entity_where_attr_stays_constant(hass, call
     assert len(calls) == 1
 
 
+async def test_attribute_if_fires_on_entity_where_attr_stays_constant_filter(
+    hass, calls
+):
+    """Test for firing if attribute stays the same."""
+    hass.states.async_set("test.entity", "bla", {"name": "other_name"})
+
+    assert await async_setup_component(
+        hass,
+        automation.DOMAIN,
+        {
+            automation.DOMAIN: {
+                "trigger": {
+                    "platform": "state",
+                    "entity_id": "test.entity",
+                    "attribute": "name",
+                    "to": "best_name",
+                },
+                "action": {"service": "test.automation"},
+            }
+        },
+    )
+    await hass.async_block_till_done()
+
+    # Leave all attributes the same
+    hass.states.async_set(
+        "test.entity", "bla", {"name": "best_name", "other": "old_value"}
+    )
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+
+    # Change the untracked attribute
+    hass.states.async_set(
+        "test.entity", "bla", {"name": "best_name", "other": "new_value"}
+    )
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+
+    # Change the tracked attribute
+    hass.states.async_set(
+        "test.entity", "bla", {"name": "other_name", "other": "old_value"}
+    )
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+
+
+async def test_attribute_if_fires_on_entity_where_attr_stays_constant_all(hass, calls):
+    """Test for firing if attribute stays the same."""
+    hass.states.async_set("test.entity", "bla", {"name": "hello", "other": "old_value"})
+
+    assert await async_setup_component(
+        hass,
+        automation.DOMAIN,
+        {
+            automation.DOMAIN: {
+                "trigger": {
+                    "platform": "state",
+                    "entity_id": "test.entity",
+                    "attribute": "name",
+                    "to": None,
+                },
+                "action": {"service": "test.automation"},
+            }
+        },
+    )
+    await hass.async_block_till_done()
+
+    # Leave all attributes the same
+    hass.states.async_set(
+        "test.entity", "bla", {"name": "name_1", "other": "old_value"}
+    )
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+
+    # Change the untracked attribute
+    hass.states.async_set(
+        "test.entity", "bla", {"name": "name_1", "other": "new_value"}
+    )
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+
+    # Change the tracked attribute
+    hass.states.async_set(
+        "test.entity", "bla", {"name": "name_2", "other": "old_value"}
+    )
+    await hass.async_block_till_done()
+    assert len(calls) == 2
+
+
 async def test_attribute_if_not_fires_on_entities_change_with_for_after_stop(
     hass, calls
 ):
@@ -1269,3 +1492,64 @@ async def test_attribute_if_fires_on_entity_change_with_both_filters_boolean(
     hass.states.async_set("test.entity", "bla", {"happening": True})
     await hass.async_block_till_done()
     assert len(calls) == 1
+
+
+async def test_variables_priority(hass, calls):
+    """Test an externally defined trigger variable is overridden."""
+    assert await async_setup_component(
+        hass,
+        automation.DOMAIN,
+        {
+            automation.DOMAIN: {
+                "trigger_variables": {"trigger": "illegal"},
+                "trigger": {
+                    "platform": "state",
+                    "entity_id": ["test.entity_1", "test.entity_2"],
+                    "to": "world",
+                    "for": '{{ 5 if trigger.entity_id == "test.entity_1"'
+                    "   else 10 }}",
+                },
+                "action": {
+                    "service": "test.automation",
+                    "data_template": {
+                        "some": "{{ trigger.entity_id }} - {{ trigger.for }}"
+                    },
+                },
+            }
+        },
+    )
+    await hass.async_block_till_done()
+
+    utcnow = dt_util.utcnow()
+    with patch("homeassistant.core.dt_util.utcnow") as mock_utcnow:
+        mock_utcnow.return_value = utcnow
+        hass.states.async_set("test.entity_1", "world")
+        await hass.async_block_till_done()
+        mock_utcnow.return_value += timedelta(seconds=1)
+        async_fire_time_changed(hass, mock_utcnow.return_value)
+        hass.states.async_set("test.entity_2", "world")
+        await hass.async_block_till_done()
+        mock_utcnow.return_value += timedelta(seconds=1)
+        async_fire_time_changed(hass, mock_utcnow.return_value)
+        hass.states.async_set("test.entity_2", "hello")
+        await hass.async_block_till_done()
+        mock_utcnow.return_value += timedelta(seconds=1)
+        async_fire_time_changed(hass, mock_utcnow.return_value)
+        hass.states.async_set("test.entity_2", "world")
+        await hass.async_block_till_done()
+        assert len(calls) == 0
+        mock_utcnow.return_value += timedelta(seconds=3)
+        async_fire_time_changed(hass, mock_utcnow.return_value)
+        await hass.async_block_till_done()
+        assert len(calls) == 1
+        assert calls[0].data["some"] == "test.entity_1 - 0:00:05"
+
+        mock_utcnow.return_value += timedelta(seconds=3)
+        async_fire_time_changed(hass, mock_utcnow.return_value)
+        await hass.async_block_till_done()
+        assert len(calls) == 1
+        mock_utcnow.return_value += timedelta(seconds=5)
+        async_fire_time_changed(hass, mock_utcnow.return_value)
+        await hass.async_block_till_done()
+        assert len(calls) == 2
+        assert calls[1].data["some"] == "test.entity_2 - 0:00:10"

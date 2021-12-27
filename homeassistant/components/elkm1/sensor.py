@@ -8,9 +8,11 @@ from elkm1_lib.const import (
 from elkm1_lib.util import pretty_const, username
 import voluptuous as vol
 
-from homeassistant.const import VOLT
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.const import ELECTRIC_POTENTIAL_VOLT
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_platform
+from homeassistant.helpers.entity import EntityCategory
 
 from . import ElkAttachedEntity, create_elk_entities
 from .const import ATTR_VALUE, DOMAIN, ELK_USER_CODE_SERVICE_SCHEMA
@@ -38,7 +40,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     create_elk_entities(elk_data, elk.zones, "zone", ElkZone, entities)
     async_add_entities(entities, True)
 
-    platform = entity_platform.current_platform.get()
+    platform = entity_platform.async_get_current_platform()
 
     platform.async_register_entity_service(
         SERVICE_SENSOR_COUNTER_REFRESH,
@@ -67,7 +69,7 @@ def temperature_to_state(temperature, undefined_temperature):
     return temperature if temperature > undefined_temperature else None
 
 
-class ElkSensor(ElkAttachedEntity):
+class ElkSensor(ElkAttachedEntity, SensorEntity):
     """Base representation of Elk-M1 sensor."""
 
     def __init__(self, element, elk, elk_data):
@@ -76,7 +78,7 @@ class ElkSensor(ElkAttachedEntity):
         self._state = None
 
     @property
-    def state(self):
+    def native_value(self):
         """Return the state of the sensor."""
         return self._state
 
@@ -126,7 +128,7 @@ class ElkKeypad(ElkSensor):
         return self._temperature_unit
 
     @property
-    def unit_of_measurement(self):
+    def native_unit_of_measurement(self):
         """Return the unit of measurement."""
         return self._temperature_unit
 
@@ -136,7 +138,7 @@ class ElkKeypad(ElkSensor):
         return "mdi:thermometer-lines"
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Attributes of the sensor."""
         attrs = self.initial_attrs()
         attrs["area"] = self._element.area + 1
@@ -157,13 +159,15 @@ class ElkKeypad(ElkSensor):
 class ElkPanel(ElkSensor):
     """Representation of an Elk-M1 Panel."""
 
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
     @property
     def icon(self):
         """Icon to use in the frontend."""
         return "mdi:home"
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Attributes of the sensor."""
         attrs = self.initial_attrs()
         attrs["system_trouble_status"] = self._element.system_trouble_status
@@ -190,7 +194,7 @@ class ElkSetting(ElkSensor):
         self._state = self._element.value
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Attributes of the sensor."""
         attrs = self.initial_attrs()
         attrs["value_format"] = SettingFormat(self._element.value_format).name.lower()
@@ -227,7 +231,7 @@ class ElkZone(ElkSensor):
         return f"mdi:{zone_icons.get(self._element.definition, 'alarm-bell')}"
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Attributes of the sensor."""
         attrs = self.initial_attrs()
         attrs["physical_status"] = ZonePhysicalStatus(
@@ -249,12 +253,12 @@ class ElkZone(ElkSensor):
         return None
 
     @property
-    def unit_of_measurement(self):
+    def native_unit_of_measurement(self):
         """Return the unit of measurement."""
         if self._element.definition == ZoneType.TEMPERATURE.value:
             return self._temperature_unit
         if self._element.definition == ZoneType.ANALOG_ZONE.value:
-            return VOLT
+            return ELECTRIC_POTENTIAL_VOLT
         return None
 
     def _element_changed(self, element, changeset):

@@ -1,13 +1,15 @@
 """Describe deCONZ logbook events."""
+from __future__ import annotations
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from homeassistant.const import ATTR_DEVICE_ID, CONF_EVENT
 from homeassistant.core import HomeAssistant, callback
+import homeassistant.helpers.device_registry as dr
 from homeassistant.helpers.event import Event
 
-from .const import DOMAIN as DECONZ_DOMAIN
-from .deconz_event import CONF_DECONZ_EVENT, DeconzEvent
+from .const import CONF_GESTURE, DOMAIN as DECONZ_DOMAIN
+from .deconz_event import CONF_DECONZ_ALARM_EVENT, CONF_DECONZ_EVENT
 from .device_trigger import (
     CONF_BOTH_BUTTONS,
     CONF_BOTTOM_BUTTONS,
@@ -51,7 +53,7 @@ from .device_trigger import (
     CONF_TURN_OFF,
     CONF_TURN_ON,
     REMOTES,
-    _get_deconz_event_from_device_id,
+    _get_deconz_event_from_device,
 )
 
 ACTIONS = {
@@ -102,42 +104,84 @@ INTERFACES = {
 }
 
 
-def _get_device_event_description(modelid: str, event: str) -> tuple:
+def _get_device_event_description(
+    modelid: str, event: int
+) -> tuple[str | None, str | None]:
     """Get device event description."""
-    device_event_descriptions: dict = REMOTES[modelid]
+    device_event_descriptions = REMOTES[modelid]
 
     for event_type_tuple, event_dict in device_event_descriptions.items():
-        if event == event_dict[CONF_EVENT]:
+        if event == event_dict.get(CONF_EVENT):
             return event_type_tuple
+        if event == event_dict.get(CONF_GESTURE):
+            return event_type_tuple
+
+    return (None, None)
 
 
 @callback
 def async_describe_events(
     hass: HomeAssistant,
-    async_describe_event: Callable[[str, str, Callable[[Event], dict]], None],
+    async_describe_event: Callable[[str, str, Callable[[Event], dict[str, str]]], None],
 ) -> None:
     """Describe logbook events."""
+    device_registry = dr.async_get(hass)
 
     @callback
-    def async_describe_deconz_event(event: Event) -> dict:
-        """Describe deCONZ logbook event."""
-        deconz_event: Optional[DeconzEvent] = _get_deconz_event_from_device_id(
-            hass, event.data[ATTR_DEVICE_ID]
-        )
+    def async_describe_deconz_alarm_event(event: Event) -> dict[str, str]:
+        """Describe deCONZ logbook alarm event."""
+        device = device_registry.devices[event.data[ATTR_DEVICE_ID]]
+        deconz_alarm_event = _get_deconz_event_from_device(hass, device)
 
-        if deconz_event.device.modelid not in REMOTES:
+        data = event.data[CONF_EVENT]
+
+        return {
+            "name": f"{deconz_alarm_event.device.name}",
+            "message": f"fired event '{data}'.",
+        }
+
+    @callback
+    def async_describe_deconz_event(event: Event) -> dict[str, str]:
+        """Describe deCONZ logbook event."""
+        device = device_registry.devices[event.data[ATTR_DEVICE_ID]]
+        deconz_event = _get_deconz_event_from_device(hass, device)
+
+        action = None
+        interface = None
+        data = event.data.get(CONF_EVENT) or event.data.get(CONF_GESTURE, "")
+
+        if data and deconz_event.device.model_id in REMOTES:
+            action, interface = _get_device_event_description(
+                deconz_event.device.model_id, data
+            )
+
+        # Unknown event
+        if not data:
             return {
                 "name": f"{deconz_event.device.name}",
-                "message": f"fired event '{event.data[CONF_EVENT]}'.",
+                "message": "fired an unknown event.",
             }
 
-        action, interface = _get_device_event_description(
-            deconz_event.device.modelid, event.data[CONF_EVENT]
-        )
+        # No device event match
+        if not action:
+            return {
+                "name": f"{deconz_event.device.name}",
+                "message": f"fired event '{data}'.",
+            }
+
+        # Gesture event
+        if not interface:
+            return {
+                "name": f"{deconz_event.device.name}",
+                "message": f"fired event '{ACTIONS[action]}'.",
+            }
 
         return {
             "name": f"{deconz_event.device.name}",
             "message": f"'{ACTIONS[action]}' event for '{INTERFACES[interface]}' was fired.",
         }
 
+    async_describe_event(
+        DECONZ_DOMAIN, CONF_DECONZ_ALARM_EVENT, async_describe_deconz_alarm_event
+    )
     async_describe_event(DECONZ_DOMAIN, CONF_DECONZ_EVENT, async_describe_deconz_event)

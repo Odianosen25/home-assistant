@@ -5,10 +5,13 @@ import os
 from batinfo import Batteries
 import voluptuous as vol
 
-from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import ATTR_NAME, CONF_NAME, DEVICE_CLASS_BATTERY, PERCENTAGE
+from homeassistant.components.sensor import (
+    PLATFORM_SCHEMA,
+    SensorDeviceClass,
+    SensorEntity,
+)
+from homeassistant.const import ATTR_NAME, CONF_NAME, PERCENTAGE
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity import Entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,40 +71,23 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     add_entities([LinuxBatterySensor(name, battery_id, system)], True)
 
 
-class LinuxBatterySensor(Entity):
+class LinuxBatterySensor(SensorEntity):
     """Representation of a Linux Battery sensor."""
+
+    _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_native_unit_of_measurement = PERCENTAGE
 
     def __init__(self, name, battery_id, system):
         """Initialize the battery sensor."""
         self._battery = Batteries()
 
-        self._name = name
+        self._attr_name = name
         self._battery_stat = None
         self._battery_id = battery_id - 1
         self._system = system
 
     @property
-    def name(self):
-        """Return the name of the sensor."""
-        return self._name
-
-    @property
-    def device_class(self):
-        """Return the device class of the sensor."""
-        return DEVICE_CLASS_BATTERY
-
-    @property
-    def state(self):
-        """Return the state of the sensor."""
-        return self._battery_stat.capacity
-
-    @property
-    def unit_of_measurement(self):
-        """Return the unit the value is expressed in."""
-        return PERCENTAGE
-
-    @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Return the state attributes of the sensor."""
         if self._system == "android":
             return {
@@ -132,3 +118,4 @@ class LinuxBatterySensor(Entity):
         """Get the latest data and updates the states."""
         self._battery.update()
         self._battery_stat = self._battery.stat[self._battery_id]
+        self._attr_native_value = self._battery_stat.capacity

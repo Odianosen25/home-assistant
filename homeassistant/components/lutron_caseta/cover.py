@@ -3,12 +3,12 @@ import logging
 
 from homeassistant.components.cover import (
     ATTR_POSITION,
-    DEVICE_CLASS_SHADE,
     DOMAIN,
     SUPPORT_CLOSE,
     SUPPORT_OPEN,
     SUPPORT_SET_POSITION,
     SUPPORT_STOP,
+    CoverDeviceClass,
     CoverEntity,
 )
 
@@ -24,7 +24,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     Adds shades from the Caseta bridge associated with the config_entry as
     cover entities.
     """
-
     entities = []
     data = hass.data[CASETA_DOMAIN][config_entry.entry_id]
     bridge = data[BRIDGE_LEAP]
@@ -59,7 +58,7 @@ class LutronCasetaCover(LutronCasetaDevice, CoverEntity):
     @property
     def device_class(self):
         """Return the device class."""
-        return DEVICE_CLASS_SHADE
+        return CoverDeviceClass.SHADE
 
     async def async_stop_cover(self, **kwargs):
         """Top the cover."""

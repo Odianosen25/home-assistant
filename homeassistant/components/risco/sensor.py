@@ -1,6 +1,6 @@
 """Sensor for Risco Events."""
 from homeassistant.components.binary_sensor import DOMAIN as BS_DOMAIN
-from homeassistant.const import DEVICE_CLASS_TIMESTAMP
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, EVENTS_COORDINATOR
@@ -42,7 +42,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     async_add_entities(sensors)
 
 
-class RiscoSensor(CoordinatorEntity):
+class RiscoSensor(CoordinatorEntity, SensorEntity):
     """Sensor for Risco events."""
 
     def __init__(self, coordinator, category_id, excludes, name, entry_id) -> None:
@@ -86,7 +86,7 @@ class RiscoSensor(CoordinatorEntity):
             self.async_write_ha_state()
 
     @property
-    def state(self):
+    def native_value(self):
         """Value of sensor."""
         if self._event is None:
             return None
@@ -94,7 +94,7 @@ class RiscoSensor(CoordinatorEntity):
         return self._event.time
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """State attributes."""
         if self._event is None:
             return None
@@ -115,4 +115,4 @@ class RiscoSensor(CoordinatorEntity):
     @property
     def device_class(self):
         """Device class of sensor."""
-        return DEVICE_CLASS_TIMESTAMP
+        return SensorDeviceClass.TIMESTAMP

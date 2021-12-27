@@ -1,5 +1,7 @@
 """Support for binary sensor using RPi GPIO."""
-from pi4ioe5v9xxxx import pi4ioe5v9xxxx  # pylint: disable=import-error
+import logging
+
+from pi4ioe5v9xxxx import pi4ioe5v9xxxx
 import voluptuous as vol
 
 from homeassistant.components.binary_sensor import PLATFORM_SCHEMA, BinarySensorEntity
@@ -30,9 +32,18 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
+_LOGGER = logging.getLogger(__name__)
+
 
 def setup_platform(hass, config, add_entities, discovery_info=None):
     """Set up the IO expander devices."""
+    _LOGGER.warning(
+        "The pi4ioe5v9xxxx IO Expander integration is deprecated and will be removed "
+        "in Home Assistant Core 2022.4; this integration is removed under "
+        "Architectural Decision Record 0019, more information can be found here: "
+        "https://github.com/home-assistant/architecture/blob/master/adr/0019-GPIO.md"
+    )
+
     pins = config[CONF_PINS]
     binary_sensors = []
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any, List, Optional, TypedDict
+from typing import Any, TypedDict
 from urllib.parse import urlparse
 
 from aiohttp import BasicAuth, FormData
@@ -20,22 +20,16 @@ from homeassistant.components.notify import (
     PLATFORM_SCHEMA,
     BaseNotificationService,
 )
-from homeassistant.const import CONF_API_KEY, CONF_ICON, CONF_USERNAME
-from homeassistant.core import callback
-from homeassistant.helpers import aiohttp_client, config_validation as cv
-import homeassistant.helpers.template as template
-from homeassistant.helpers.typing import (
-    ConfigType,
-    DiscoveryInfoType,
-    HomeAssistantType,
-)
+from homeassistant.const import ATTR_ICON, CONF_API_KEY, CONF_ICON, CONF_USERNAME
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import aiohttp_client, config_validation as cv, template
+from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 _LOGGER = logging.getLogger(__name__)
 
 ATTR_BLOCKS = "blocks"
 ATTR_BLOCKS_TEMPLATE = "blocks_template"
 ATTR_FILE = "file"
-ATTR_ICON = "icon"
 ATTR_PASSWORD = "password"
 ATTR_PATH = "path"
 ATTR_URL = "url"
@@ -106,14 +100,14 @@ class MessageT(TypedDict, total=False):
     username: str  # Optional key
     icon_url: str  # Optional key
     icon_emoji: str  # Optional key
-    blocks: List[Any]  # Optional key
+    blocks: list[Any]  # Optional key
 
 
 async def async_get_service(
-    hass: HomeAssistantType,
+    hass: HomeAssistant,
     config: ConfigType,
-    discovery_info: Optional[DiscoveryInfoType] = None,
-) -> Optional[SlackNotificationService]:
+    discovery_info: DiscoveryInfoType | None = None,
+) -> SlackNotificationService | None:
     """Set up the Slack notification service."""
     session = aiohttp_client.async_get_clientsession(hass)
     client = WebClient(token=config[CONF_API_KEY], run_async=True, session=session)
@@ -147,23 +141,9 @@ def _async_get_filename_from_url(url: str) -> str:
 
 
 @callback
-def _async_sanitize_channel_names(channel_list: List[str]) -> List[str]:
+def _async_sanitize_channel_names(channel_list: list[str]) -> list[str]:
     """Remove any # symbols from a channel list."""
     return [channel.lstrip("#") for channel in channel_list]
-
-
-@callback
-def _async_templatize_blocks(hass: HomeAssistantType, value: Any) -> Any:
-    """Recursive template creator helper function."""
-    if isinstance(value, list):
-        return [_async_templatize_blocks(hass, item) for item in value]
-    if isinstance(value, dict):
-        return {
-            key: _async_templatize_blocks(hass, item) for key, item in value.items()
-        }
-
-    tmpl = template.Template(value, hass=hass)  # type: ignore  # no-untyped-call
-    return tmpl.async_render(parse_result=False)
 
 
 class SlackNotificationService(BaseNotificationService):
@@ -171,11 +151,11 @@ class SlackNotificationService(BaseNotificationService):
 
     def __init__(
         self,
-        hass: HomeAssistantType,
+        hass: HomeAssistant,
         client: WebClient,
         default_channel: str,
-        username: Optional[str],
-        icon: Optional[str],
+        username: str | None,
+        icon: str | None,
     ) -> None:
         """Initialize."""
         self._client = client
@@ -187,9 +167,9 @@ class SlackNotificationService(BaseNotificationService):
     async def _async_send_local_file_message(
         self,
         path: str,
-        targets: List[str],
+        targets: list[str],
         message: str,
-        title: Optional[str],
+        title: str | None,
     ) -> None:
         """Upload a local file (with message) to Slack."""
         if not self._hass.config.is_allowed_path(path):
@@ -213,12 +193,12 @@ class SlackNotificationService(BaseNotificationService):
     async def _async_send_remote_file_message(
         self,
         url: str,
-        targets: List[str],
+        targets: list[str],
         message: str,
-        title: Optional[str],
+        title: str | None,
         *,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
     ) -> None:
         """Upload a remote file (with message) to Slack.
 
@@ -263,13 +243,13 @@ class SlackNotificationService(BaseNotificationService):
 
     async def _async_send_text_only_message(
         self,
-        targets: List[str],
+        targets: list[str],
         message: str,
-        title: Optional[str],
+        title: str | None,
         *,
-        username: Optional[str] = None,
-        icon: Optional[str] = None,
-        blocks: Optional[Any] = None,
+        username: str | None = None,
+        icon: str | None = None,
+        blocks: Any | None = None,
     ) -> None:
         """Send a text-only message."""
         message_dict: MessageT = {"link_names": True, "text": message}
@@ -320,9 +300,9 @@ class SlackNotificationService(BaseNotificationService):
         # Message Type 1: A text-only message
         if ATTR_FILE not in data:
             if ATTR_BLOCKS_TEMPLATE in data:
-                blocks = _async_templatize_blocks(
-                    self._hass, data[ATTR_BLOCKS_TEMPLATE]
-                )
+                value = cv.template_complex(data[ATTR_BLOCKS_TEMPLATE])
+                template.attach(self._hass, value)
+                blocks = template.render_complex(value)
             elif ATTR_BLOCKS in data:
                 blocks = data[ATTR_BLOCKS]
             else:

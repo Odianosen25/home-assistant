@@ -11,7 +11,11 @@ from stringcase import camelcase, snakecase
 import thermoworks_smoke
 import voluptuous as vol
 
-from homeassistant.components.sensor import PLATFORM_SCHEMA
+from homeassistant.components.sensor import (
+    PLATFORM_SCHEMA,
+    SensorDeviceClass,
+    SensorEntity,
+)
 from homeassistant.const import (
     ATTR_BATTERY_LEVEL,
     CONF_EMAIL,
@@ -21,7 +25,6 @@ from homeassistant.const import (
     TEMP_FAHRENHEIT,
 )
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity import Entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -91,7 +94,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
             _LOGGER.error(msg)
 
 
-class ThermoworksSmokeSensor(Entity):
+class ThermoworksSmokeSensor(SensorEntity):
     """Implementation of a thermoworks smoke sensor."""
 
     def __init__(self, sensor_type, serial, mgr):
@@ -106,6 +109,7 @@ class ThermoworksSmokeSensor(Entity):
         self._unique_id = f"{serial}-{sensor_type}"
         self.serial = serial
         self.mgr = mgr
+        self._attr_device_class = SensorDeviceClass.TEMPERATURE
         self.update_unit()
 
     @property
@@ -119,17 +123,17 @@ class ThermoworksSmokeSensor(Entity):
         return self._unique_id
 
     @property
-    def state(self):
+    def native_value(self):
         """Return the state of the sensor."""
         return self._state
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Return the state attributes."""
         return self._attributes
 
     @property
-    def unit_of_measurement(self):
+    def native_unit_of_measurement(self):
         """Return the unit of measurement of this sensor."""
         return self._unit_of_measurement
 
@@ -159,7 +163,7 @@ class ThermoworksSmokeSensor(Entity):
             }
 
             # set extended attributes for main probe sensors
-            if self.type in [PROBE_1, PROBE_2]:
+            if self.type in (PROBE_1, PROBE_2):
                 for key, val in values.items():
                     # add all attributes that don't contain any probe name
                     # or contain a matching probe name

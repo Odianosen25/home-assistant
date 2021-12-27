@@ -1,11 +1,11 @@
 """Support for Aqualink temperature sensors."""
 from homeassistant.components.binary_sensor import (
-    DEVICE_CLASS_COLD,
     DOMAIN,
+    BinarySensorDeviceClass,
     BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.typing import HomeAssistantType
+from homeassistant.core import HomeAssistant
 
 from . import AqualinkEntity
 from .const import DOMAIN as AQUALINK_DOMAIN
@@ -14,7 +14,7 @@ PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
-    hass: HomeAssistantType, config_entry: ConfigEntry, async_add_entities
+    hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities
 ) -> None:
     """Set up discovered binary sensors."""
     devs = []
@@ -40,5 +40,5 @@ class HassAqualinkBinarySensor(AqualinkEntity, BinarySensorEntity):
     def device_class(self) -> str:
         """Return the class of the binary sensor."""
         if self.name == "Freeze Protection":
-            return DEVICE_CLASS_COLD
+            return BinarySensorDeviceClass.COLD
         return None

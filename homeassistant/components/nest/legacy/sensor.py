@@ -1,11 +1,10 @@
 """Support for Nest Thermostat sensors for the legacy API."""
 import logging
 
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import (
     CONF_MONITORED_CONDITIONS,
     CONF_SENSORS,
-    DEVICE_CLASS_HUMIDITY,
-    DEVICE_CLASS_TEMPERATURE,
     PERCENTAGE,
     STATE_OFF,
     TEMP_CELSIUS,
@@ -46,7 +45,7 @@ _VALID_SENSOR_TYPES = (
 
 SENSOR_UNITS = {"humidity": PERCENTAGE}
 
-SENSOR_DEVICE_CLASSES = {"humidity": DEVICE_CLASS_HUMIDITY}
+SENSOR_DEVICE_CLASSES = {"humidity": SensorDeviceClass.HUMIDITY}
 
 VARIABLE_NAME_MAPPING = {"eta": "eta_begin", "operation_mode": "mode"}
 
@@ -76,7 +75,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     """
 
 
-async def async_setup_legacy_entry(hass, entry, async_add_entities):
+async def async_setup_legacy_entry(hass, entry, async_add_entities) -> None:
     """Set up a Nest sensor based on a config entry."""
     nest = hass.data[DATA_NEST]
 
@@ -92,9 +91,9 @@ async def async_setup_legacy_entry(hass, entry, async_add_entities):
         if variable in _SENSOR_TYPES_DEPRECATED:
             if variable in DEPRECATED_WEATHER_VARS:
                 wstr = (
-                    "Nest no longer provides weather data like %s. See "
+                    f"Nest no longer provides weather data like {variable}. See "
                     "https://www.home-assistant.io/integrations/#weather "
-                    "for a list of other weather integrations to use." % variable
+                    "for a list of other weather integrations to use."
                 )
             else:
                 wstr = (
@@ -149,11 +148,16 @@ async def async_setup_legacy_entry(hass, entry, async_add_entities):
     async_add_entities(await hass.async_add_executor_job(get_sensors), True)
 
 
-class NestBasicSensor(NestSensorDevice):
+class NestBasicSensor(NestSensorDevice, SensorEntity):
     """Representation a basic Nest sensor."""
 
     @property
-    def state(self):
+    def native_unit_of_measurement(self):
+        """Return the unit the value is expressed in."""
+        return self._unit
+
+    @property
+    def native_value(self):
         """Return the state of the sensor."""
         return self._state
 
@@ -179,18 +183,23 @@ class NestBasicSensor(NestSensorDevice):
             self._state = getattr(self.device, self.variable)
 
 
-class NestTempSensor(NestSensorDevice):
+class NestTempSensor(NestSensorDevice, SensorEntity):
     """Representation of a Nest Temperature sensor."""
 
     @property
-    def state(self):
+    def native_value(self):
         """Return the state of the sensor."""
         return self._state
 
     @property
+    def native_unit_of_measurement(self):
+        """Return the unit the value is expressed in."""
+        return self._unit
+
+    @property
     def device_class(self):
         """Return the device class of the sensor."""
-        return DEVICE_CLASS_TEMPERATURE
+        return SensorDeviceClass.TEMPERATURE
 
     def update(self):
         """Retrieve latest state."""
@@ -199,8 +208,7 @@ class NestTempSensor(NestSensorDevice):
         else:
             self._unit = TEMP_FAHRENHEIT
 
-        temp = getattr(self.device, self.variable)
-        if temp is None:
+        if (temp := getattr(self.device, self.variable)) is None:
             self._state = None
 
         if isinstance(temp, tuple):

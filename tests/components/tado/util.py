@@ -18,7 +18,9 @@ async def async_init_integration(
     token_fixture = "tado/token.json"
     devices_fixture = "tado/devices.json"
     me_fixture = "tado/me.json"
+    weather_fixture = "tado/weather.json"
     zones_fixture = "tado/zones.json"
+    zone_states_fixture = "tado/zone_states.json"
 
     # WR1 Device
     device_wr1_fixture = "tado/device_wr1.json"
@@ -46,11 +48,18 @@ async def async_init_integration(
     # Device Temp Offset
     device_temp_offset = "tado/device_temp_offset.json"
 
+    # Zone Default Overlay
+    zone_def_overlay = "tado/zone_default_overlay.json"
+
     with requests_mock.mock() as m:
         m.post("https://auth.tado.com/oauth/token", text=load_fixture(token_fixture))
         m.get(
             "https://my.tado.com/api/v2/me",
             text=load_fixture(me_fixture),
+        )
+        m.get(
+            "https://my.tado.com/api/v2/homes/1/weather",
+            text=load_fixture(weather_fixture),
         )
         m.get(
             "https://my.tado.com/api/v2/homes/1/devices",
@@ -73,6 +82,10 @@ async def async_init_integration(
             text=load_fixture(zones_fixture),
         )
         m.get(
+            "https://my.tado.com/api/v2/homes/1/zoneStates",
+            text=load_fixture(zone_states_fixture),
+        )
+        m.get(
             "https://my.tado.com/api/v2/homes/1/zones/5/capabilities",
             text=load_fixture(zone_5_capabilities_fixture),
         )
@@ -91,6 +104,26 @@ async def async_init_integration(
         m.get(
             "https://my.tado.com/api/v2/homes/1/zones/1/capabilities",
             text=load_fixture(zone_1_capabilities_fixture),
+        )
+        m.get(
+            "https://my.tado.com/api/v2/homes/1/zones/1/defaultOverlay",
+            text=load_fixture(zone_def_overlay),
+        )
+        m.get(
+            "https://my.tado.com/api/v2/homes/1/zones/2/defaultOverlay",
+            text=load_fixture(zone_def_overlay),
+        )
+        m.get(
+            "https://my.tado.com/api/v2/homes/1/zones/3/defaultOverlay",
+            text=load_fixture(zone_def_overlay),
+        )
+        m.get(
+            "https://my.tado.com/api/v2/homes/1/zones/4/defaultOverlay",
+            text=load_fixture(zone_def_overlay),
+        )
+        m.get(
+            "https://my.tado.com/api/v2/homes/1/zones/5/defaultOverlay",
+            text=load_fixture(zone_def_overlay),
         )
         m.get(
             "https://my.tado.com/api/v2/homes/1/zones/5/state",

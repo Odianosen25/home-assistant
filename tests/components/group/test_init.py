@@ -3,6 +3,8 @@
 from collections import OrderedDict
 from unittest.mock import patch
 
+import pytest
+
 import homeassistant.components.group as group
 from homeassistant.const import (
     ATTR_ASSUMED_STATE,
@@ -38,7 +40,7 @@ async def test_setup_group_with_mixed_groupable_states(hass):
 
     await hass.async_block_till_done()
 
-    assert STATE_ON == hass.states.get(f"{group.DOMAIN}.person_and_light").state
+    assert hass.states.get(f"{group.DOMAIN}.person_and_light").state == STATE_ON
 
 
 async def test_setup_group_with_a_non_existing_state(hass):
@@ -51,7 +53,7 @@ async def test_setup_group_with_a_non_existing_state(hass):
         hass, "light_and_nothing", ["light.Bowl", "non.existing"]
     )
 
-    assert STATE_ON == grp.state
+    assert grp.state == STATE_ON
 
 
 async def test_setup_group_with_non_groupable_states(hass):
@@ -90,7 +92,7 @@ async def test_monitor_group(hass):
     assert test_group.entity_id in hass.states.async_entity_ids()
 
     group_state = hass.states.get(test_group.entity_id)
-    assert STATE_ON == group_state.state
+    assert group_state.state == STATE_ON
     assert group_state.attributes.get(group.ATTR_AUTO)
 
 
@@ -108,7 +110,7 @@ async def test_group_turns_off_if_all_off(hass):
     await hass.async_block_till_done()
 
     group_state = hass.states.get(test_group.entity_id)
-    assert STATE_OFF == group_state.state
+    assert group_state.state == STATE_OFF
 
 
 async def test_group_turns_on_if_all_are_off_and_one_turns_on(hass):
@@ -127,7 +129,7 @@ async def test_group_turns_on_if_all_are_off_and_one_turns_on(hass):
     await hass.async_block_till_done()
 
     group_state = hass.states.get(test_group.entity_id)
-    assert STATE_ON == group_state.state
+    assert group_state.state == STATE_ON
 
 
 async def test_allgroup_stays_off_if_all_are_off_and_one_turns_on(hass):
@@ -146,7 +148,7 @@ async def test_allgroup_stays_off_if_all_are_off_and_one_turns_on(hass):
     await hass.async_block_till_done()
 
     group_state = hass.states.get(test_group.entity_id)
-    assert STATE_OFF == group_state.state
+    assert group_state.state == STATE_OFF
 
 
 async def test_allgroup_turn_on_if_last_turns_on(hass):
@@ -165,7 +167,7 @@ async def test_allgroup_turn_on_if_last_turns_on(hass):
     await hass.async_block_till_done()
 
     group_state = hass.states.get(test_group.entity_id)
-    assert STATE_ON == group_state.state
+    assert group_state.state == STATE_ON
 
 
 async def test_expand_entity_ids(hass):
@@ -287,7 +289,7 @@ async def test_group_being_init_before_first_tracked_state_is_set_to_on(hass):
     await hass.async_block_till_done()
 
     group_state = hass.states.get(test_group.entity_id)
-    assert STATE_ON == group_state.state
+    assert group_state.state == STATE_ON
 
 
 async def test_group_being_init_before_first_tracked_state_is_set_to_off(hass):
@@ -306,7 +308,7 @@ async def test_group_being_init_before_first_tracked_state_is_set_to_off(hass):
     await hass.async_block_till_done()
 
     group_state = hass.states.get(test_group.entity_id)
-    assert STATE_OFF == group_state.state
+    assert group_state.state == STATE_OFF
 
 
 async def test_groups_get_unique_names(hass):
@@ -385,7 +387,7 @@ async def test_group_updated_after_device_tracker_zone_change(hass):
 
     hass.states.async_set("device_tracker.Adam", "cool_state_not_home")
     await hass.async_block_till_done()
-    assert STATE_NOT_HOME == hass.states.get(f"{group.DOMAIN}.peeps").state
+    assert hass.states.get(f"{group.DOMAIN}.peeps").state == STATE_NOT_HOME
 
 
 async def test_is_on(hass):
@@ -517,20 +519,20 @@ async def test_setup(hass):
     await hass.async_block_till_done()
 
     group_state = hass.states.get(f"{group.DOMAIN}.created_group")
-    assert STATE_ON == group_state.state
+    assert group_state.state == STATE_ON
     assert {test_group.entity_id, "light.bowl"} == set(
         group_state.attributes["entity_id"]
     )
     assert group_state.attributes.get(group.ATTR_AUTO) is None
-    assert "mdi:work" == group_state.attributes.get(ATTR_ICON)
-    assert 3 == group_state.attributes.get(group.ATTR_ORDER)
+    assert group_state.attributes.get(ATTR_ICON) == "mdi:work"
+    assert group_state.attributes.get(group.ATTR_ORDER) == 3
 
     group_state = hass.states.get(f"{group.DOMAIN}.test_group")
-    assert STATE_UNKNOWN == group_state.state
-    assert {"sensor.happy", "hello.world"} == set(group_state.attributes["entity_id"])
+    assert group_state.state == STATE_UNKNOWN
+    assert set(group_state.attributes["entity_id"]) == {"sensor.happy", "hello.world"}
     assert group_state.attributes.get(group.ATTR_AUTO) is None
     assert group_state.attributes.get(ATTR_ICON) is None
-    assert 0 == group_state.attributes.get(group.ATTR_ORDER)
+    assert group_state.attributes.get(group.ATTR_ORDER) == 0
 
 
 async def test_service_group_services(hass):
@@ -579,7 +581,7 @@ async def test_service_group_set_group_remove_group(hass):
     assert group_state.attributes[group.ATTR_AUTO]
     assert group_state.attributes["friendly_name"] == "Test2"
     assert group_state.attributes["icon"] == "mdi:camera"
-    assert sorted(list(group_state.attributes["entity_id"])) == sorted(
+    assert sorted(group_state.attributes["entity_id"]) == sorted(
         ["test.entity_bla1", "test.entity_id2"]
     )
 
@@ -713,7 +715,7 @@ async def test_group_persons_and_device_trackers(hass):
 
 async def test_group_mixed_domains_on(hass):
     """Test group of mixed domains that is on."""
-    hass.states.async_set("lock.alexander_garage_exit_door", "locked")
+    hass.states.async_set("lock.alexander_garage_exit_door", "unlocked")
     hass.states.async_set("binary_sensor.alexander_garage_side_door_open", "on")
     hass.states.async_set("cover.small_garage_door", "open")
 
@@ -738,7 +740,7 @@ async def test_group_mixed_domains_on(hass):
 
 async def test_group_mixed_domains_off(hass):
     """Test group of mixed domains that is off."""
-    hass.states.async_set("lock.alexander_garage_exit_door", "unlocked")
+    hass.states.async_set("lock.alexander_garage_exit_door", "locked")
     hass.states.async_set("binary_sensor.alexander_garage_side_door_open", "off")
     hass.states.async_set("cover.small_garage_door", "closed")
 
@@ -761,11 +763,18 @@ async def test_group_mixed_domains_off(hass):
     assert hass.states.get("group.group_zero").state == "off"
 
 
-async def test_group_locks(hass):
+@pytest.mark.parametrize(
+    "states,group_state",
+    [
+        (("locked", "locked", "unlocked"), "unlocked"),
+        (("locked", "locked", "locked"), "locked"),
+    ],
+)
+async def test_group_locks(hass, states, group_state):
     """Test group of locks."""
-    hass.states.async_set("lock.one", "locked")
-    hass.states.async_set("lock.two", "locked")
-    hass.states.async_set("lock.three", "unlocked")
+    hass.states.async_set("lock.one", states[0])
+    hass.states.async_set("lock.two", states[1])
+    hass.states.async_set("lock.three", states[2])
 
     assert await async_setup_component(hass, "lock", {})
     assert await async_setup_component(
@@ -779,7 +788,7 @@ async def test_group_locks(hass):
     )
     await hass.async_block_till_done()
 
-    assert hass.states.get("group.group_zero").state == "locked"
+    assert hass.states.get("group.group_zero").state == group_state
 
 
 async def test_group_sensors(hass):

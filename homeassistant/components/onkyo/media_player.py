@@ -1,6 +1,7 @@
 """Support for Onkyo Receivers."""
+from __future__ import annotations
+
 import logging
-from typing import List
 
 import eiscp
 from eiscp import eISCP
@@ -56,7 +57,7 @@ SUPPORT_ONKYO_WO_VOLUME = (
     | SUPPORT_PLAY_MEDIA
 )
 
-KNOWN_HOSTS: List[str] = []
+KNOWN_HOSTS: list[str] = []
 DEFAULT_SOURCES = {
     "tv": "TV",
     "bd": "Bluray",
@@ -118,15 +119,20 @@ ONKYO_SELECT_OUTPUT_SCHEMA = vol.Schema(
 SERVICE_SELECT_HDMI_OUTPUT = "onkyo_select_hdmi_output"
 
 
-def _parse_onkyo_tuple(tup):
-    """Parse a tuple returned from the eiscp library."""
-    if len(tup) < 2:
+def _parse_onkyo_payload(payload):
+    """Parse a payload returned from the eiscp library."""
+    if isinstance(payload, bool):
+        # command not supported by the device
+        return False
+
+    if len(payload) < 2:
+        # no value
         return None
 
-    if isinstance(tup[1], str):
-        return tup[1].split(",")
+    if isinstance(payload[1], str):
+        return payload[1].split(",")
 
-    return tup[1]
+    return payload[1]
 
 
 def _tuple_get(tup, index, default=None):
@@ -139,16 +145,22 @@ def determine_zones(receiver):
     out = {"zone2": False, "zone3": False}
     try:
         _LOGGER.debug("Checking for zone 2 capability")
-        receiver.raw("ZPWQSTN")
-        out["zone2"] = True
+        response = receiver.raw("ZPWQSTN")
+        if response != "ZPWN/A":  # Zone 2 Available
+            out["zone2"] = True
+        else:
+            _LOGGER.debug("Zone 2 not available")
     except ValueError as error:
         if str(error) != TIMEOUT_MESSAGE:
             raise error
         _LOGGER.debug("Zone 2 timed out, assuming no functionality")
     try:
         _LOGGER.debug("Checking for zone 3 capability")
-        receiver.raw("PW3QSTN")
-        out["zone3"] = True
+        response = receiver.raw("PW3QSTN")
+        if response != "PW3N/A":
+            out["zone3"] = True
+        else:
+            _LOGGER.debug("Zone 3 not available")
     except ValueError as error:
         if str(error) != TIMEOUT_MESSAGE:
             raise error
@@ -267,6 +279,8 @@ class OnkyoDevice(MediaPlayerEntity):
         self._reverse_mapping = {value: key for key, value in sources.items()}
         self._attributes = {}
         self._hdmi_out_supported = True
+        self._audio_info_supported = True
+        self._video_info_supported = True
 
     def command(self, command):
         """Run an eiscp command and catch connection errors."""
@@ -309,12 +323,16 @@ class OnkyoDevice(MediaPlayerEntity):
         else:
             hdmi_out_raw = []
         preset_raw = self.command("preset query")
-        audio_information_raw = self.command("audio-information query")
-        video_information_raw = self.command("video-information query")
+        if self._audio_info_supported:
+            audio_information_raw = self.command("audio-information query")
+            self._parse_audio_information(audio_information_raw)
+        if self._video_info_supported:
+            video_information_raw = self.command("video-information query")
+            self._parse_video_information(video_information_raw)
         if not (volume_raw and mute_raw and current_source_raw):
             return
 
-        sources = _parse_onkyo_tuple(current_source_raw)
+        sources = _parse_onkyo_payload(current_source_raw)
 
         for source in sources:
             if source in self._source_mapping:
@@ -332,9 +350,6 @@ class OnkyoDevice(MediaPlayerEntity):
         self._volume = volume_raw[1] / (
             self._receiver_max_volume * self._max_volume / 100
         )
-
-        self._parse_audio_information(audio_information_raw)
-        self._parse_video_information(video_information_raw)
 
         if not hdmi_out_raw:
             return
@@ -383,7 +398,7 @@ class OnkyoDevice(MediaPlayerEntity):
         return self._source_list
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Return device specific state attributes."""
         return self._attributes
 
@@ -441,7 +456,11 @@ class OnkyoDevice(MediaPlayerEntity):
         self.command(f"hdmi-output-selector={output}")
 
     def _parse_audio_information(self, audio_information_raw):
-        values = _parse_onkyo_tuple(audio_information_raw)
+        values = _parse_onkyo_payload(audio_information_raw)
+        if values is False:
+            self._audio_info_supported = False
+            return
+
         if values:
             info = {
                 "format": _tuple_get(values, 1),
@@ -456,7 +475,11 @@ class OnkyoDevice(MediaPlayerEntity):
             self._attributes.pop(ATTR_AUDIO_INFORMATION, None)
 
     def _parse_video_information(self, video_information_raw):
-        values = _parse_onkyo_tuple(video_information_raw)
+        values = _parse_onkyo_payload(video_information_raw)
+        if values is False:
+            self._video_info_supported = False
+            return
+
         if values:
             info = {
                 "input_resolution": _tuple_get(values, 1),

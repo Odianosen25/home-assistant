@@ -4,7 +4,9 @@ from aiohomekit.model.services import ServicesTypes
 import pytest
 
 import homeassistant.components.automation as automation
+from homeassistant.components.device_automation import DeviceAutomationType
 from homeassistant.components.homekit_controller.const import DOMAIN
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.setup import async_setup_component
 
 from tests.common import (
@@ -12,7 +14,7 @@ from tests.common import (
     async_get_device_automations,
     async_mock_service,
 )
-from tests.components.blueprint.conftest import stub_blueprint_populate  # noqa
+from tests.components.blueprint.conftest import stub_blueprint_populate  # noqa: F401
 from tests.components.homekit_controller.common import setup_test_component
 
 
@@ -82,10 +84,10 @@ async def test_enumerate_remote(hass, utcnow):
     """Test that remote is correctly enumerated."""
     await setup_test_component(hass, create_remote)
 
-    entity_registry = await hass.helpers.entity_registry.async_get_registry()
+    entity_registry = er.async_get(hass)
     entry = entity_registry.async_get("sensor.testdevice_battery")
 
-    device_registry = await hass.helpers.device_registry.async_get_registry()
+    device_registry = dr.async_get(hass)
     device = device_registry.async_get(entry.device_id)
 
     expected = [
@@ -110,7 +112,9 @@ async def test_enumerate_remote(hass, utcnow):
                 }
             )
 
-    triggers = await async_get_device_automations(hass, "trigger", device.id)
+    triggers = await async_get_device_automations(
+        hass, DeviceAutomationType.TRIGGER, device.id
+    )
     assert_lists_same(triggers, expected)
 
 
@@ -118,10 +122,10 @@ async def test_enumerate_button(hass, utcnow):
     """Test that a button is correctly enumerated."""
     await setup_test_component(hass, create_button)
 
-    entity_registry = await hass.helpers.entity_registry.async_get_registry()
+    entity_registry = er.async_get(hass)
     entry = entity_registry.async_get("sensor.testdevice_battery")
 
-    device_registry = await hass.helpers.device_registry.async_get_registry()
+    device_registry = dr.async_get(hass)
     device = device_registry.async_get(entry.device_id)
 
     expected = [
@@ -145,7 +149,9 @@ async def test_enumerate_button(hass, utcnow):
             }
         )
 
-    triggers = await async_get_device_automations(hass, "trigger", device.id)
+    triggers = await async_get_device_automations(
+        hass, DeviceAutomationType.TRIGGER, device.id
+    )
     assert_lists_same(triggers, expected)
 
 
@@ -153,10 +159,10 @@ async def test_enumerate_doorbell(hass, utcnow):
     """Test that a button is correctly enumerated."""
     await setup_test_component(hass, create_doorbell)
 
-    entity_registry = await hass.helpers.entity_registry.async_get_registry()
+    entity_registry = er.async_get(hass)
     entry = entity_registry.async_get("sensor.testdevice_battery")
 
-    device_registry = await hass.helpers.device_registry.async_get_registry()
+    device_registry = dr.async_get(hass)
     device = device_registry.async_get(entry.device_id)
 
     expected = [
@@ -180,7 +186,9 @@ async def test_enumerate_doorbell(hass, utcnow):
             }
         )
 
-    triggers = await async_get_device_automations(hass, "trigger", device.id)
+    triggers = await async_get_device_automations(
+        hass, DeviceAutomationType.TRIGGER, device.id
+    )
     assert_lists_same(triggers, expected)
 
 
@@ -188,10 +196,10 @@ async def test_handle_events(hass, utcnow, calls):
     """Test that events are handled."""
     helper = await setup_test_component(hass, create_remote)
 
-    entity_registry = await hass.helpers.entity_registry.async_get_registry()
+    entity_registry = er.async_get(hass)
     entry = entity_registry.async_get("sensor.testdevice_battery")
 
-    device_registry = await hass.helpers.device_registry.async_get_registry()
+    device_registry = dr.async_get(hass)
     device = device_registry.async_get(entry.device_id)
 
     assert await async_setup_component(
@@ -213,7 +221,8 @@ async def test_handle_events(hass, utcnow, calls):
                         "data_template": {
                             "some": (
                                 "{{ trigger.platform}} - "
-                                "{{ trigger.type }} - {{ trigger.subtype }}"
+                                "{{ trigger.type }} - {{ trigger.subtype }} - "
+                                "{{ trigger.id }}"
                             )
                         },
                     },
@@ -232,7 +241,8 @@ async def test_handle_events(hass, utcnow, calls):
                         "data_template": {
                             "some": (
                                 "{{ trigger.platform}} - "
-                                "{{ trigger.type }} - {{ trigger.subtype }}"
+                                "{{ trigger.type }} - {{ trigger.subtype }} - "
+                                "{{ trigger.id }}"
                             )
                         },
                     },
@@ -248,7 +258,7 @@ async def test_handle_events(hass, utcnow, calls):
 
     await hass.async_block_till_done()
     assert len(calls) == 1
-    assert calls[0].data["some"] == "device - button1 - single_press"
+    assert calls[0].data["some"] == "device - button1 - single_press - 0"
 
     # Make sure automation doesn't trigger for long press
     helper.pairing.testing.update_named_service(
@@ -273,7 +283,7 @@ async def test_handle_events(hass, utcnow, calls):
 
     await hass.async_block_till_done()
     assert len(calls) == 2
-    assert calls[1].data["some"] == "device - button2 - long_press"
+    assert calls[1].data["some"] == "device - button2 - long_press - 0"
 
     # Turn the automations off
     await hass.services.async_call(

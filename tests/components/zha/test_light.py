@@ -1,6 +1,6 @@
 """Test zha light."""
 from datetime import timedelta
-from unittest.mock import AsyncMock, MagicMock, call, patch, sentinel
+from unittest.mock import AsyncMock, call, patch, sentinel
 
 import pytest
 import zigpy.profiles.zha as zha
@@ -9,10 +9,10 @@ import zigpy.zcl.clusters.general as general
 import zigpy.zcl.clusters.lighting as lighting
 import zigpy.zcl.foundation as zcl_f
 
-from homeassistant.components.light import DOMAIN, FLASH_LONG, FLASH_SHORT
+from homeassistant.components.light import FLASH_LONG, FLASH_SHORT
 from homeassistant.components.zha.core.group import GroupMember
 from homeassistant.components.zha.light import FLASH_EFFECTS
-from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE
+from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, Platform
 import homeassistant.util.dt as dt_util
 
 from .common import (
@@ -23,8 +23,10 @@ from .common import (
     get_zha_gateway,
     send_attributes_report,
 )
+from .conftest import SIG_EP_INPUT, SIG_EP_OUTPUT, SIG_EP_PROFILE, SIG_EP_TYPE
 
 from tests.common import async_fire_time_changed
+from tests.components.zha.common import async_wait_for_updates
 
 ON = 1
 OFF = 0
@@ -34,39 +36,42 @@ IEEE_GROUPABLE_DEVICE3 = "03:2d:6f:00:0a:90:69:e7"
 
 LIGHT_ON_OFF = {
     1: {
-        "device_type": zha.DeviceType.ON_OFF_LIGHT,
-        "in_clusters": [
+        SIG_EP_PROFILE: zha.PROFILE_ID,
+        SIG_EP_TYPE: zha.DeviceType.ON_OFF_LIGHT,
+        SIG_EP_INPUT: [
             general.Basic.cluster_id,
             general.Identify.cluster_id,
             general.OnOff.cluster_id,
         ],
-        "out_clusters": [general.Ota.cluster_id],
+        SIG_EP_OUTPUT: [general.Ota.cluster_id],
     }
 }
 
 LIGHT_LEVEL = {
     1: {
-        "device_type": zha.DeviceType.DIMMABLE_LIGHT,
-        "in_clusters": [
+        SIG_EP_PROFILE: zha.PROFILE_ID,
+        SIG_EP_TYPE: zha.DeviceType.DIMMABLE_LIGHT,
+        SIG_EP_INPUT: [
             general.Basic.cluster_id,
             general.LevelControl.cluster_id,
             general.OnOff.cluster_id,
         ],
-        "out_clusters": [general.Ota.cluster_id],
+        SIG_EP_OUTPUT: [general.Ota.cluster_id],
     }
 }
 
 LIGHT_COLOR = {
     1: {
-        "device_type": zha.DeviceType.COLOR_DIMMABLE_LIGHT,
-        "in_clusters": [
+        SIG_EP_PROFILE: zha.PROFILE_ID,
+        SIG_EP_TYPE: zha.DeviceType.COLOR_DIMMABLE_LIGHT,
+        SIG_EP_INPUT: [
             general.Basic.cluster_id,
             general.Identify.cluster_id,
             general.LevelControl.cluster_id,
             general.OnOff.cluster_id,
             lighting.Color.cluster_id,
         ],
-        "out_clusters": [general.Ota.cluster_id],
+        SIG_EP_OUTPUT: [general.Ota.cluster_id],
     }
 }
 
@@ -78,9 +83,10 @@ async def coordinator(hass, zigpy_device_mock, zha_device_joined):
     zigpy_device = zigpy_device_mock(
         {
             1: {
-                "in_clusters": [general.Groups.cluster_id],
-                "out_clusters": [],
-                "device_type": zha.DeviceType.COLOR_DIMMABLE_LIGHT,
+                SIG_EP_INPUT: [general.Groups.cluster_id],
+                SIG_EP_OUTPUT: [],
+                SIG_EP_TYPE: zha.DeviceType.COLOR_DIMMABLE_LIGHT,
+                SIG_EP_PROFILE: zha.PROFILE_ID,
             }
         },
         ieee="00:15:8d:00:02:32:4f:32",
@@ -99,15 +105,16 @@ async def device_light_1(hass, zigpy_device_mock, zha_device_joined):
     zigpy_device = zigpy_device_mock(
         {
             1: {
-                "in_clusters": [
+                SIG_EP_INPUT: [
                     general.OnOff.cluster_id,
                     general.LevelControl.cluster_id,
                     lighting.Color.cluster_id,
                     general.Groups.cluster_id,
                     general.Identify.cluster_id,
                 ],
-                "out_clusters": [],
-                "device_type": zha.DeviceType.COLOR_DIMMABLE_LIGHT,
+                SIG_EP_OUTPUT: [],
+                SIG_EP_TYPE: zha.DeviceType.COLOR_DIMMABLE_LIGHT,
+                SIG_EP_PROFILE: zha.PROFILE_ID,
             }
         },
         ieee=IEEE_GROUPABLE_DEVICE,
@@ -125,15 +132,16 @@ async def device_light_2(hass, zigpy_device_mock, zha_device_joined):
     zigpy_device = zigpy_device_mock(
         {
             1: {
-                "in_clusters": [
+                SIG_EP_INPUT: [
                     general.OnOff.cluster_id,
                     general.LevelControl.cluster_id,
                     lighting.Color.cluster_id,
                     general.Groups.cluster_id,
                     general.Identify.cluster_id,
                 ],
-                "out_clusters": [],
-                "device_type": zha.DeviceType.COLOR_DIMMABLE_LIGHT,
+                SIG_EP_OUTPUT: [],
+                SIG_EP_TYPE: zha.DeviceType.COLOR_DIMMABLE_LIGHT,
+                SIG_EP_PROFILE: zha.PROFILE_ID,
             }
         },
         ieee=IEEE_GROUPABLE_DEVICE2,
@@ -151,15 +159,16 @@ async def device_light_3(hass, zigpy_device_mock, zha_device_joined):
     zigpy_device = zigpy_device_mock(
         {
             1: {
-                "in_clusters": [
+                SIG_EP_INPUT: [
                     general.OnOff.cluster_id,
                     general.LevelControl.cluster_id,
                     lighting.Color.cluster_id,
                     general.Groups.cluster_id,
                     general.Identify.cluster_id,
                 ],
-                "out_clusters": [],
-                "device_type": zha.DeviceType.COLOR_DIMMABLE_LIGHT,
+                SIG_EP_OUTPUT: [],
+                SIG_EP_TYPE: zha.DeviceType.COLOR_DIMMABLE_LIGHT,
+                SIG_EP_PROFILE: zha.PROFILE_ID,
             }
         },
         ieee=IEEE_GROUPABLE_DEVICE3,
@@ -170,15 +179,15 @@ async def device_light_3(hass, zigpy_device_mock, zha_device_joined):
     return zha_device
 
 
-@patch("zigpy.zcl.clusters.general.OnOff.read_attributes", new=MagicMock())
 async def test_light_refresh(hass, zigpy_device_mock, zha_device_joined_restored):
     """Test zha light platform refresh."""
 
     # create zigpy devices
     zigpy_device = zigpy_device_mock(LIGHT_ON_OFF)
-    zha_device = await zha_device_joined_restored(zigpy_device)
     on_off_cluster = zigpy_device.endpoints[1].on_off
-    entity_id = await find_entity_id(DOMAIN, zha_device, hass)
+    on_off_cluster.PLUGGED_ATTR_READS = {"on_off": 0}
+    zha_device = await zha_device_joined_restored(zigpy_device)
+    entity_id = await find_entity_id(Platform.LIGHT, zha_device, hass)
 
     # allow traffic to flow through the gateway and device
     await async_enable_traffic(hass, [zha_device])
@@ -192,7 +201,7 @@ async def test_light_refresh(hass, zigpy_device_mock, zha_device_joined_restored
     assert hass.states.get(entity_id).state == STATE_OFF
 
     # 1 interval - 1 call
-    on_off_cluster.read_attributes.return_value = [{"on_off": 1}, {}]
+    on_off_cluster.PLUGGED_ATTR_READS = {"on_off": 1}
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=80))
     await hass.async_block_till_done()
     assert on_off_cluster.read_attributes.call_count == 1
@@ -200,7 +209,7 @@ async def test_light_refresh(hass, zigpy_device_mock, zha_device_joined_restored
     assert hass.states.get(entity_id).state == STATE_ON
 
     # 2 intervals - 2 calls
-    on_off_cluster.read_attributes.return_value = [{"on_off": 0}, {}]
+    on_off_cluster.PLUGGED_ATTR_READS = {"on_off": 0}
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=80))
     await hass.async_block_till_done()
     assert on_off_cluster.read_attributes.call_count == 2
@@ -236,7 +245,7 @@ async def test_light(
     # create zigpy devices
     zigpy_device = zigpy_device_mock(device)
     zha_device = await zha_device_joined_restored(zigpy_device)
-    entity_id = await find_entity_id(DOMAIN, zha_device, hass)
+    entity_id = await find_entity_id(Platform.LIGHT, zha_device, hass)
 
     assert entity_id is not None
 
@@ -296,12 +305,12 @@ async def async_test_on_off_from_light(hass, cluster, entity_id):
     """Test on off functionality from the light."""
     # turn on at light
     await send_attributes_report(hass, cluster, {1: 0, 0: 1, 2: 3})
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
     assert hass.states.get(entity_id).state == STATE_ON
 
     # turn off at light
     await send_attributes_report(hass, cluster, {1: 1, 0: 0, 2: 3})
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
     assert hass.states.get(entity_id).state == STATE_OFF
 
 
@@ -309,7 +318,7 @@ async def async_test_on_from_light(hass, cluster, entity_id):
     """Test on off functionality from the light."""
     # turn on at light
     await send_attributes_report(hass, cluster, {1: -1, 0: 1, 2: 2})
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
     assert hass.states.get(entity_id).state == STATE_ON
 
 
@@ -318,7 +327,7 @@ async def async_test_on_off_from_hass(hass, cluster, entity_id):
     # turn on via UI
     cluster.request.reset_mock()
     await hass.services.async_call(
-        DOMAIN, "turn_on", {"entity_id": entity_id}, blocking=True
+        Platform.LIGHT, "turn_on", {"entity_id": entity_id}, blocking=True
     )
     assert cluster.request.call_count == 1
     assert cluster.request.await_count == 1
@@ -335,7 +344,7 @@ async def async_test_off_from_hass(hass, cluster, entity_id):
     # turn off via UI
     cluster.request.reset_mock()
     await hass.services.async_call(
-        DOMAIN, "turn_off", {"entity_id": entity_id}, blocking=True
+        Platform.LIGHT, "turn_off", {"entity_id": entity_id}, blocking=True
     )
     assert cluster.request.call_count == 1
     assert cluster.request.await_count == 1
@@ -353,7 +362,7 @@ async def async_test_level_on_off_from_hass(
     level_cluster.request.reset_mock()
     # turn on via UI
     await hass.services.async_call(
-        DOMAIN, "turn_on", {"entity_id": entity_id}, blocking=True
+        Platform.LIGHT, "turn_on", {"entity_id": entity_id}, blocking=True
     )
     assert on_off_cluster.request.call_count == 1
     assert on_off_cluster.request.await_count == 1
@@ -366,7 +375,10 @@ async def async_test_level_on_off_from_hass(
     level_cluster.request.reset_mock()
 
     await hass.services.async_call(
-        DOMAIN, "turn_on", {"entity_id": entity_id, "transition": 10}, blocking=True
+        Platform.LIGHT,
+        "turn_on",
+        {"entity_id": entity_id, "transition": 10},
+        blocking=True,
     )
     assert on_off_cluster.request.call_count == 1
     assert on_off_cluster.request.await_count == 1
@@ -390,15 +402,16 @@ async def async_test_level_on_off_from_hass(
     level_cluster.request.reset_mock()
 
     await hass.services.async_call(
-        DOMAIN, "turn_on", {"entity_id": entity_id, "brightness": 10}, blocking=True
+        Platform.LIGHT,
+        "turn_on",
+        {"entity_id": entity_id, "brightness": 10},
+        blocking=True,
     )
-    assert on_off_cluster.request.call_count == 1
-    assert on_off_cluster.request.await_count == 1
+    # the onoff cluster is now not used when brightness is present by default
+    assert on_off_cluster.request.call_count == 0
+    assert on_off_cluster.request.await_count == 0
     assert level_cluster.request.call_count == 1
     assert level_cluster.request.await_count == 1
-    assert on_off_cluster.request.call_args == call(
-        False, ON, (), expect_reply=True, manufacturer=None, tries=1, tsn=None
-    )
     assert level_cluster.request.call_args == call(
         False,
         4,
@@ -422,7 +435,7 @@ async def async_test_dimmer_from_light(hass, cluster, entity_id, level, expected
     await send_attributes_report(
         hass, cluster, {1: level + 10, 0: level, 2: level - 10 or 22}
     )
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
     assert hass.states.get(entity_id).state == expected_state
     # hass uses None for brightness of 0 in state attributes
     if level == 0:
@@ -435,7 +448,10 @@ async def async_test_flash_from_hass(hass, cluster, entity_id, flash):
     # turn on via UI
     cluster.request.reset_mock()
     await hass.services.async_call(
-        DOMAIN, "turn_on", {"entity_id": entity_id, "flash": flash}, blocking=True
+        Platform.LIGHT,
+        "turn_on",
+        {"entity_id": entity_id, "flash": flash},
+        blocking=True,
     )
     assert cluster.request.call_count == 1
     assert cluster.request.await_count == 1
@@ -468,6 +484,10 @@ async def async_test_flash_from_hass(hass, cluster, entity_id, flash):
     "zigpy.zcl.clusters.general.OnOff.request",
     new=AsyncMock(return_value=[sentinel.data, zcl_f.Status.SUCCESS]),
 )
+@patch(
+    "homeassistant.components.zha.entity.UPDATE_GROUP_FROM_CHILD_DELAY",
+    new=0,
+)
 async def test_zha_group_light_entity(
     hass, device_light_1, device_light_2, device_light_3, coordinator
 ):
@@ -494,9 +514,9 @@ async def test_zha_group_light_entity(
         assert member.group == zha_group
         assert member.endpoint is not None
 
-    device_1_entity_id = await find_entity_id(DOMAIN, device_light_1, hass)
-    device_2_entity_id = await find_entity_id(DOMAIN, device_light_2, hass)
-    device_3_entity_id = await find_entity_id(DOMAIN, device_light_3, hass)
+    device_1_entity_id = await find_entity_id(Platform.LIGHT, device_light_1, hass)
+    device_2_entity_id = await find_entity_id(Platform.LIGHT, device_light_2, hass)
+    device_3_entity_id = await find_entity_id(Platform.LIGHT, device_light_3, hass)
 
     assert (
         device_1_entity_id != device_2_entity_id
@@ -504,7 +524,7 @@ async def test_zha_group_light_entity(
     )
     assert device_2_entity_id != device_3_entity_id
 
-    group_entity_id = async_find_group_entity_id(hass, DOMAIN, zha_group)
+    group_entity_id = async_find_group_entity_id(hass, Platform.LIGHT, zha_group)
     assert hass.states.get(group_entity_id) is not None
 
     assert device_1_entity_id in zha_group.member_entity_ids
@@ -524,13 +544,13 @@ async def test_zha_group_light_entity(
     await async_enable_traffic(
         hass, [device_light_1, device_light_2, device_light_3], enabled=False
     )
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
     # test that the lights were created and that they are unavailable
     assert hass.states.get(group_entity_id).state == STATE_UNAVAILABLE
 
     # allow traffic to flow through the gateway and device
     await async_enable_traffic(hass, [device_light_1, device_light_2, device_light_3])
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
 
     # test that the lights were created and are off
     assert hass.states.get(group_entity_id).state == STATE_OFF
@@ -582,7 +602,7 @@ async def test_zha_group_light_entity(
     assert hass.states.get(group_entity_id).state == STATE_ON
 
     await send_attributes_report(hass, dev2_cluster_on_off, {0: 0})
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
 
     # test that group light is now off
     assert hass.states.get(device_1_entity_id).state == STATE_OFF
@@ -590,7 +610,7 @@ async def test_zha_group_light_entity(
     assert hass.states.get(group_entity_id).state == STATE_OFF
 
     await send_attributes_report(hass, dev1_cluster_on_off, {0: 1})
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
 
     # test that group light is now back on
     assert hass.states.get(device_1_entity_id).state == STATE_ON
@@ -599,7 +619,7 @@ async def test_zha_group_light_entity(
 
     # turn it off to test a new member add being tracked
     await send_attributes_report(hass, dev1_cluster_on_off, {0: 0})
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
     assert hass.states.get(device_1_entity_id).state == STATE_OFF
     assert hass.states.get(device_2_entity_id).state == STATE_OFF
     assert hass.states.get(group_entity_id).state == STATE_OFF
@@ -607,7 +627,7 @@ async def test_zha_group_light_entity(
     # add a new member and test that his state is also tracked
     await zha_group.async_add_members([GroupMember(device_light_3.ieee, 1)])
     await send_attributes_report(hass, dev3_cluster_on_off, {0: 1})
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
     assert device_3_entity_id in zha_group.member_entity_ids
     assert len(zha_group.members) == 3
 
@@ -631,14 +651,14 @@ async def test_zha_group_light_entity(
     # add a member back and ensure that the group entity was created again
     await zha_group.async_add_members([GroupMember(device_light_3.ieee, 1)])
     await send_attributes_report(hass, dev3_cluster_on_off, {0: 1})
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
     assert len(zha_group.members) == 2
     assert hass.states.get(group_entity_id).state == STATE_ON
 
     # add a 3rd member and ensure we still have an entity and we track the new one
     await send_attributes_report(hass, dev1_cluster_on_off, {0: 0})
     await send_attributes_report(hass, dev3_cluster_on_off, {0: 0})
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
     assert hass.states.get(group_entity_id).state == STATE_OFF
 
     # this will test that _reprobe_group is used correctly
@@ -646,7 +666,7 @@ async def test_zha_group_light_entity(
         [GroupMember(device_light_2.ieee, 1), GroupMember(coordinator.ieee, 1)]
     )
     await send_attributes_report(hass, dev2_cluster_on_off, {0: 1})
-    await hass.async_block_till_done()
+    await async_wait_for_updates(hass)
     assert len(zha_group.members) == 4
     assert hass.states.get(group_entity_id).state == STATE_ON
 

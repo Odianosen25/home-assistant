@@ -1,5 +1,6 @@
 """Support for interface with an LG webOS Smart TV."""
 import asyncio
+from contextlib import suppress
 from datetime import timedelta
 from functools import wraps
 import logging
@@ -8,7 +9,10 @@ from aiopylgtv import PyLGTVCmdException, PyLGTVPairException, WebOsClient
 from websockets.exceptions import ConnectionClosed
 
 from homeassistant import util
-from homeassistant.components.media_player import DEVICE_CLASS_TV, MediaPlayerEntity
+from homeassistant.components.media_player import (
+    MediaPlayerDeviceClass,
+    MediaPlayerEntity,
+)
 from homeassistant.components.media_player.const import (
     MEDIA_TYPE_CHANNEL,
     SUPPORT_NEXT_TRACK,
@@ -23,14 +27,6 @@ from homeassistant.components.media_player.const import (
     SUPPORT_VOLUME_SET,
     SUPPORT_VOLUME_STEP,
 )
-from homeassistant.components.webostv.const import (
-    ATTR_PAYLOAD,
-    ATTR_SOUND_OUTPUT,
-    CONF_ON_ACTION,
-    CONF_SOURCES,
-    DOMAIN,
-    LIVE_TV_APP_ID,
-)
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     CONF_CUSTOMIZE,
@@ -43,6 +39,15 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.script import Script
+
+from .const import (
+    ATTR_PAYLOAD,
+    ATTR_SOUND_OUTPUT,
+    CONF_ON_ACTION,
+    CONF_SOURCES,
+    DOMAIN,
+    LIVE_TV_APP_ID,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -126,7 +131,7 @@ class LgWebOSMediaPlayerEntity(MediaPlayerEntity):
         self._paused = False
 
         self._current_source = None
-        self._source_list = {}
+        self._source_list: dict = {}
 
     async def async_added_to_hass(self):
         """Connect and subscribe to dispatcher signals and state updates."""
@@ -142,8 +147,7 @@ class LgWebOSMediaPlayerEntity(MediaPlayerEntity):
 
     async def async_signal_handler(self, data):
         """Handle domain-specific signal by calling appropriate method."""
-        entity_ids = data[ATTR_ENTITY_ID]
-        if entity_ids == ENTITY_MATCH_NONE:
+        if (entity_ids := data[ATTR_ENTITY_ID]) == ENTITY_MATCH_NONE:
             return
 
         if entity_ids == ENTITY_MATCH_ALL or self.entity_id in entity_ids:
@@ -214,9 +218,7 @@ class LgWebOSMediaPlayerEntity(MediaPlayerEntity):
     async def async_update(self):
         """Connect."""
         if not self._client.is_connected():
-            try:
-                await self._client.connect()
-            except (
+            with suppress(
                 OSError,
                 ConnectionClosed,
                 ConnectionRefusedError,
@@ -225,7 +227,7 @@ class LgWebOSMediaPlayerEntity(MediaPlayerEntity):
                 PyLGTVPairException,
                 PyLGTVCmdException,
             ):
-                pass
+                await self._client.connect()
 
     @property
     def unique_id(self):
@@ -240,7 +242,7 @@ class LgWebOSMediaPlayerEntity(MediaPlayerEntity):
     @property
     def device_class(self):
         """Return the device class of the device."""
-        return DEVICE_CLASS_TV
+        return MediaPlayerDeviceClass.TV
 
     @property
     def state(self):
@@ -271,7 +273,7 @@ class LgWebOSMediaPlayerEntity(MediaPlayerEntity):
     @property
     def source_list(self):
         """List of available input sources."""
-        return sorted(list(self._source_list))
+        return sorted(self._source_list)
 
     @property
     def media_content_type(self):
@@ -305,9 +307,7 @@ class LgWebOSMediaPlayerEntity(MediaPlayerEntity):
         """Flag media player features that are supported."""
         supported = SUPPORT_WEBOSTV
 
-        if (self._client.sound_output == "external_arc") or (
-            self._client.sound_output == "external_speaker"
-        ):
+        if self._client.sound_output in ("external_arc", "external_speaker"):
             supported = supported | SUPPORT_WEBOSTV_VOLUME
         elif self._client.sound_output != "lineout":
             supported = supported | SUPPORT_WEBOSTV_VOLUME | SUPPORT_VOLUME_SET
@@ -318,7 +318,7 @@ class LgWebOSMediaPlayerEntity(MediaPlayerEntity):
         return supported
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Return device specific state attributes."""
         if self._client.sound_output is None and self.state == STATE_OFF:
             return {}
@@ -371,8 +371,7 @@ class LgWebOSMediaPlayerEntity(MediaPlayerEntity):
     @cmd
     async def async_select_source(self, source):
         """Select input source."""
-        source_dict = self._source_list.get(source)
-        if source_dict is None:
+        if (source_dict := self._source_list.get(source)) is None:
             _LOGGER.warning("Source %s not found for %s", source, self.name)
             return
         if source_dict.get("title"):
@@ -386,7 +385,7 @@ class LgWebOSMediaPlayerEntity(MediaPlayerEntity):
         _LOGGER.debug("Call play media type <%s>, Id <%s>", media_type, media_id)
 
         if media_type == MEDIA_TYPE_CHANNEL:
-            _LOGGER.debug("Searching channel...")
+            _LOGGER.debug("Searching channel")
             partial_match_channel_id = None
             perfect_match_channel_id = None
 

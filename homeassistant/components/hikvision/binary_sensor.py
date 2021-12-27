@@ -6,14 +6,14 @@ from pyhik.hikvision import HikCamera
 import voluptuous as vol
 
 from homeassistant.components.binary_sensor import (
-    DEVICE_CLASS_CONNECTIVITY,
-    DEVICE_CLASS_MOTION,
     PLATFORM_SCHEMA,
+    BinarySensorDeviceClass,
     BinarySensorEntity,
 )
 from homeassistant.const import (
     ATTR_LAST_TRIP_TIME,
     CONF_CUSTOMIZE,
+    CONF_DELAY,
     CONF_HOST,
     CONF_NAME,
     CONF_PASSWORD,
@@ -30,7 +30,6 @@ from homeassistant.util.dt import utcnow
 _LOGGER = logging.getLogger(__name__)
 
 CONF_IGNORED = "ignored"
-CONF_DELAY = "delay"
 
 DEFAULT_PORT = 80
 DEFAULT_IGNORED = False
@@ -39,28 +38,28 @@ DEFAULT_DELAY = 0
 ATTR_DELAY = "delay"
 
 DEVICE_CLASS_MAP = {
-    "Motion": DEVICE_CLASS_MOTION,
-    "Line Crossing": DEVICE_CLASS_MOTION,
-    "Field Detection": DEVICE_CLASS_MOTION,
+    "Motion": BinarySensorDeviceClass.MOTION,
+    "Line Crossing": BinarySensorDeviceClass.MOTION,
+    "Field Detection": BinarySensorDeviceClass.MOTION,
     "Video Loss": None,
-    "Tamper Detection": DEVICE_CLASS_MOTION,
+    "Tamper Detection": BinarySensorDeviceClass.MOTION,
     "Shelter Alarm": None,
     "Disk Full": None,
     "Disk Error": None,
-    "Net Interface Broken": DEVICE_CLASS_CONNECTIVITY,
-    "IP Conflict": DEVICE_CLASS_CONNECTIVITY,
+    "Net Interface Broken": BinarySensorDeviceClass.CONNECTIVITY,
+    "IP Conflict": BinarySensorDeviceClass.CONNECTIVITY,
     "Illegal Access": None,
     "Video Mismatch": None,
     "Bad Video": None,
-    "PIR Alarm": DEVICE_CLASS_MOTION,
-    "Face Detection": DEVICE_CLASS_MOTION,
-    "Scene Change Detection": DEVICE_CLASS_MOTION,
+    "PIR Alarm": BinarySensorDeviceClass.MOTION,
+    "Face Detection": BinarySensorDeviceClass.MOTION,
+    "Scene Change Detection": BinarySensorDeviceClass.MOTION,
     "I/O": None,
-    "Unattended Baggage": DEVICE_CLASS_MOTION,
-    "Attended Baggage": DEVICE_CLASS_MOTION,
+    "Unattended Baggage": BinarySensorDeviceClass.MOTION,
+    "Attended Baggage": BinarySensorDeviceClass.MOTION,
     "Recording Failure": None,
-    "Exiting Region": DEVICE_CLASS_MOTION,
-    "Entering Region": DEVICE_CLASS_MOTION,
+    "Exiting Region": BinarySensorDeviceClass.MOTION,
+    "Entering Region": BinarySensorDeviceClass.MOTION,
 }
 
 CUSTOMIZE_SCHEMA = vol.Schema(
@@ -139,7 +138,6 @@ class HikvisionData:
 
     def __init__(self, hass, url, port, name, username, password):
         """Initialize the data object."""
-
         self._url = url
         self._port = port
         self._name = name
@@ -253,7 +251,7 @@ class HikvisionBinarySensor(BinarySensorEntity):
         return False
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Return the state attributes."""
         attr = {ATTR_LAST_TRIP_TIME: self._sensor_last_update()}
 

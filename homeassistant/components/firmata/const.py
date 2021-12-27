@@ -4,13 +4,13 @@ from homeassistant.const import (
     CONF_LIGHTS,
     CONF_SENSORS,
     CONF_SWITCHES,
+    Platform,
 )
 
 CONF_ARDUINO_INSTANCE_ID = "arduino_instance_id"
 CONF_ARDUINO_WAIT = "arduino_wait"
 CONF_DIFFERENTIAL = "differential"
 CONF_INITIAL_STATE = "initial"
-CONF_NAME = "name"
 CONF_NEGATE_STATE = "negate"
 CONF_PINS = "pins"
 CONF_PIN_MODE = "pin_mode"
@@ -28,8 +28,8 @@ CONF_SLEEP_TUNE = "sleep_tune"
 DOMAIN = "firmata"
 FIRMATA_MANUFACTURER = "Firmata"
 CONF_PLATFORM_MAP = {
-    CONF_BINARY_SENSORS: "binary_sensor",
-    CONF_LIGHTS: "light",
-    CONF_SENSORS: "sensor",
-    CONF_SWITCHES: "switch",
+    CONF_BINARY_SENSORS: Platform.BINARY_SENSOR,
+    CONF_LIGHTS: Platform.LIGHT,
+    CONF_SENSORS: Platform.SENSOR,
+    CONF_SWITCHES: Platform.SWITCH,
 }

@@ -5,7 +5,11 @@ from mficlient.client import FailedToLogin, MFiClient
 import requests
 import voluptuous as vol
 
-from homeassistant.components.sensor import PLATFORM_SCHEMA
+from homeassistant.components.sensor import (
+    PLATFORM_SCHEMA,
+    SensorDeviceClass,
+    SensorEntity,
+)
 from homeassistant.const import (
     CONF_HOST,
     CONF_PASSWORD,
@@ -18,7 +22,6 @@ from homeassistant.const import (
     TEMP_CELSIUS,
 )
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity import Entity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -74,7 +77,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     )
 
 
-class MfiSensor(Entity):
+class MfiSensor(SensorEntity):
     """Representation of a mFi sensor."""
 
     def __init__(self, port, hass):
@@ -84,11 +87,11 @@ class MfiSensor(Entity):
 
     @property
     def name(self):
-        """Return the name of th sensor."""
+        """Return the name of the sensor."""
         return self._port.label
 
     @property
-    def state(self):
+    def native_value(self):
         """Return the state of the sensor."""
         try:
             tag = self._port.tag
@@ -102,7 +105,20 @@ class MfiSensor(Entity):
         return round(self._port.value, digits)
 
     @property
-    def unit_of_measurement(self):
+    def device_class(self):
+        """Return the device class of the sensor."""
+        try:
+            tag = self._port.tag
+        except ValueError:
+            return None
+
+        if tag == "temperature":
+            return SensorDeviceClass.TEMPERATURE
+
+        return None
+
+    @property
+    def native_unit_of_measurement(self):
         """Return the unit of measurement of this entity, if any."""
         try:
             tag = self._port.tag

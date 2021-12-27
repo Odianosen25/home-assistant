@@ -27,11 +27,11 @@ from homeassistant.components.humidifier.const import (
     DOMAIN,
     SERVICE_SET_HUMIDITY,
 )
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import (
     ATTR_DEVICE_CLASS,
     ATTR_ENTITY_ID,
     ATTR_UNIT_OF_MEASUREMENT,
-    DEVICE_CLASS_HUMIDITY,
     PERCENTAGE,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
@@ -54,7 +54,7 @@ async def test_humidifier(hass, hk_driver, events):
     )
     hk_driver.add_accessory(acc)
 
-    await acc.run_handler()
+    await acc.run()
     await hass.async_block_till_done()
 
     assert acc.aid == 1
@@ -135,7 +135,7 @@ async def test_dehumidifier(hass, hk_driver, events):
     )
     hk_driver.add_accessory(acc)
 
-    await acc.run_handler()
+    await acc.run()
     await hass.async_block_till_done()
 
     assert acc.aid == 1
@@ -220,7 +220,7 @@ async def test_hygrostat_power_state(hass, hk_driver, events):
     )
     hk_driver.add_accessory(acc)
 
-    await acc.run_handler()
+    await acc.run()
     await hass.async_block_till_done()
 
     assert acc.char_current_humidifier_dehumidifier.value == 2
@@ -298,7 +298,7 @@ async def test_hygrostat_get_humidity_range(hass, hk_driver):
     )
     hk_driver.add_accessory(acc)
 
-    await acc.run_handler()
+    await acc.run()
     await hass.async_block_till_done()
 
     assert acc.char_target_humidity.properties[PROP_MAX_VALUE] == 45
@@ -313,7 +313,7 @@ async def test_humidifier_with_linked_humidity_sensor(hass, hk_driver):
         humidity_sensor_entity_id,
         "42.0",
         {
-            ATTR_DEVICE_CLASS: DEVICE_CLASS_HUMIDITY,
+            ATTR_DEVICE_CLASS: SensorDeviceClass.HUMIDITY,
             ATTR_UNIT_OF_MEASUREMENT: PERCENTAGE,
         },
     )
@@ -332,7 +332,7 @@ async def test_humidifier_with_linked_humidity_sensor(hass, hk_driver):
     )
     hk_driver.add_accessory(acc)
 
-    await acc.run_handler()
+    await acc.run()
     await hass.async_block_till_done()
 
     assert acc.char_current_humidity.value == 42.0
@@ -341,7 +341,7 @@ async def test_humidifier_with_linked_humidity_sensor(hass, hk_driver):
         humidity_sensor_entity_id,
         "43.0",
         {
-            ATTR_DEVICE_CLASS: DEVICE_CLASS_HUMIDITY,
+            ATTR_DEVICE_CLASS: SensorDeviceClass.HUMIDITY,
             ATTR_UNIT_OF_MEASUREMENT: PERCENTAGE,
         },
     )
@@ -353,7 +353,7 @@ async def test_humidifier_with_linked_humidity_sensor(hass, hk_driver):
         humidity_sensor_entity_id,
         STATE_UNAVAILABLE,
         {
-            ATTR_DEVICE_CLASS: DEVICE_CLASS_HUMIDITY,
+            ATTR_DEVICE_CLASS: SensorDeviceClass.HUMIDITY,
             ATTR_UNIT_OF_MEASUREMENT: PERCENTAGE,
         },
     )
@@ -384,7 +384,7 @@ async def test_humidifier_with_a_missing_linked_humidity_sensor(hass, hk_driver)
     )
     hk_driver.add_accessory(acc)
 
-    await acc.run_handler()
+    await acc.run()
     await hass.async_block_till_done()
 
     assert acc.char_current_humidity.value == 0
@@ -401,7 +401,7 @@ async def test_humidifier_as_dehumidifier(hass, hk_driver, events, caplog):
     )
     hk_driver.add_accessory(acc)
 
-    await acc.run_handler()
+    await acc.run()
     await hass.async_block_till_done()
 
     assert acc.char_target_humidifier_dehumidifier.value == 1

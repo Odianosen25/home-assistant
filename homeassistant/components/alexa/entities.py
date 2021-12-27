@@ -1,18 +1,22 @@
 """Alexa entity adapters."""
+from __future__ import annotations
+
 import logging
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from homeassistant.components import (
     alarm_control_panel,
     alert,
     automation,
     binary_sensor,
+    button,
     camera,
     cover,
     fan,
     group,
     image_processing,
     input_boolean,
+    input_button,
     input_number,
     light,
     lock,
@@ -30,6 +34,7 @@ from homeassistant.const import (
     ATTR_SUPPORTED_FEATURES,
     ATTR_UNIT_OF_MEASUREMENT,
     CLOUD_NEVER_EXPOSED_ENTITIES,
+    CONF_DESCRIPTION,
     CONF_NAME,
     TEMP_CELSIUS,
     TEMP_FAHRENHEIT,
@@ -37,6 +42,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers import network
+from homeassistant.helpers.entity import entity_sources
 from homeassistant.util.decorator import Registry
 
 from .capabilities import (
@@ -56,11 +62,9 @@ from .capabilities import (
     AlexaLockController,
     AlexaModeController,
     AlexaMotionSensor,
-    AlexaPercentageController,
     AlexaPlaybackController,
     AlexaPlaybackStateReporter,
     AlexaPowerController,
-    AlexaPowerLevelController,
     AlexaRangeController,
     AlexaSceneController,
     AlexaSecurityPanelController,
@@ -72,7 +76,7 @@ from .capabilities import (
     AlexaTimeHoldController,
     AlexaToggleController,
 )
-from .const import CONF_DESCRIPTION, CONF_DISPLAY_CATEGORIES
+from .const import CONF_DISPLAY_CATEGORIES
 
 if TYPE_CHECKING:
     from .config import AbstractConfig
@@ -251,7 +255,9 @@ class AlexaEntity:
     The API handlers should manipulate entities only through this interface.
     """
 
-    def __init__(self, hass: HomeAssistant, config: "AbstractConfig", entity: State):
+    def __init__(
+        self, hass: HomeAssistant, config: AbstractConfig, entity: State
+    ) -> None:
         """Initialize Alexa Entity."""
         self.hass = hass
         self.config = config
@@ -300,7 +306,7 @@ class AlexaEntity:
         Raises _UnsupportedInterface.
         """
 
-    def interfaces(self) -> List[AlexaCapability]:
+    def interfaces(self) -> list[AlexaCapability]:
         """Return a list of supported interfaces.
 
         Used for discovery. The list should contain AlexaInterface instances.
@@ -353,7 +359,7 @@ class AlexaEntity:
 
 
 @callback
-def async_get_entities(hass, config) -> List[AlexaEntity]:
+def async_get_entities(hass, config) -> list[AlexaEntity]:
     """Return all entities that are supported by Alexa."""
     entities = []
     for state in hass.states.async_all():
@@ -406,7 +412,7 @@ class SwitchCapabilities(AlexaEntity):
     def default_display_categories(self):
         """Return the display categories for this entity."""
         device_class = self.entity.attributes.get(ATTR_DEVICE_CLASS)
-        if device_class == switch.DEVICE_CLASS_OUTLET:
+        if device_class == switch.SwitchDeviceClass.OUTLET:
             return [DisplayCategory.SMARTPLUG]
 
         return [DisplayCategory.SWITCH]
@@ -416,6 +422,23 @@ class SwitchCapabilities(AlexaEntity):
         return [
             AlexaPowerController(self.entity),
             AlexaEndpointHealth(self.hass, self.entity),
+            Alexa(self.hass),
+        ]
+
+
+@ENTITY_ADAPTERS.register(button.DOMAIN)
+@ENTITY_ADAPTERS.register(input_button.DOMAIN)
+class ButtonCapabilities(AlexaEntity):
+    """Class to represent Button capabilities."""
+
+    def default_display_categories(self):
+        """Return the display categories for this entity."""
+        return [DisplayCategory.ACTIVITY_TRIGGER]
+
+    def interfaces(self):
+        """Yield the supported interfaces."""
+        return [
+            AlexaSceneController(self.entity, supports_deactivation=False),
             Alexa(self.hass),
         ]
 
@@ -449,20 +472,20 @@ class CoverCapabilities(AlexaEntity):
     def default_display_categories(self):
         """Return the display categories for this entity."""
         device_class = self.entity.attributes.get(ATTR_DEVICE_CLASS)
-        if device_class in (cover.DEVICE_CLASS_GARAGE, cover.DEVICE_CLASS_GATE):
+        if device_class in (cover.CoverDeviceClass.GARAGE, cover.CoverDeviceClass.GATE):
             return [DisplayCategory.GARAGE_DOOR]
-        if device_class == cover.DEVICE_CLASS_DOOR:
+        if device_class == cover.CoverDeviceClass.DOOR:
             return [DisplayCategory.DOOR]
         if device_class in (
-            cover.DEVICE_CLASS_BLIND,
-            cover.DEVICE_CLASS_SHADE,
-            cover.DEVICE_CLASS_CURTAIN,
+            cover.CoverDeviceClass.BLIND,
+            cover.CoverDeviceClass.SHADE,
+            cover.CoverDeviceClass.CURTAIN,
         ):
             return [DisplayCategory.INTERIOR_BLIND]
         if device_class in (
-            cover.DEVICE_CLASS_WINDOW,
-            cover.DEVICE_CLASS_AWNING,
-            cover.DEVICE_CLASS_SHUTTER,
+            cover.CoverDeviceClass.WINDOW,
+            cover.CoverDeviceClass.AWNING,
+            cover.CoverDeviceClass.SHUTTER,
         ):
             return [DisplayCategory.EXTERIOR_BLIND]
 
@@ -471,7 +494,10 @@ class CoverCapabilities(AlexaEntity):
     def interfaces(self):
         """Yield the supported interfaces."""
         device_class = self.entity.attributes.get(ATTR_DEVICE_CLASS)
-        if device_class not in (cover.DEVICE_CLASS_GARAGE, cover.DEVICE_CLASS_GATE):
+        if device_class not in (
+            cover.CoverDeviceClass.GARAGE,
+            cover.CoverDeviceClass.GATE,
+        ):
             yield AlexaPowerController(self.entity)
 
         supported = self.entity.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
@@ -501,12 +527,12 @@ class LightCapabilities(AlexaEntity):
         """Yield the supported interfaces."""
         yield AlexaPowerController(self.entity)
 
-        supported = self.entity.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
-        if supported & light.SUPPORT_BRIGHTNESS:
+        color_modes = self.entity.attributes.get(light.ATTR_SUPPORTED_COLOR_MODES)
+        if light.brightness_supported(color_modes):
             yield AlexaBrightnessController(self.entity)
-        if supported & light.SUPPORT_COLOR:
+        if light.color_supported(color_modes):
             yield AlexaColorController(self.entity)
-        if supported & light.SUPPORT_COLOR_TEMP:
+        if light.color_temp_supported(color_modes):
             yield AlexaColorTemperatureController(self.entity)
 
         yield AlexaEndpointHealth(self.hass, self.entity)
@@ -524,21 +550,31 @@ class FanCapabilities(AlexaEntity):
     def interfaces(self):
         """Yield the supported interfaces."""
         yield AlexaPowerController(self.entity)
-
+        force_range_controller = True
         supported = self.entity.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
-        if supported & fan.SUPPORT_SET_SPEED:
-            yield AlexaPercentageController(self.entity)
-            yield AlexaPowerLevelController(self.entity)
-            yield AlexaRangeController(
-                self.entity, instance=f"{fan.DOMAIN}.{fan.ATTR_SPEED}"
-            )
         if supported & fan.SUPPORT_OSCILLATE:
             yield AlexaToggleController(
                 self.entity, instance=f"{fan.DOMAIN}.{fan.ATTR_OSCILLATING}"
             )
+            force_range_controller = False
+        if supported & fan.SUPPORT_PRESET_MODE:
+            yield AlexaModeController(
+                self.entity, instance=f"{fan.DOMAIN}.{fan.ATTR_PRESET_MODE}"
+            )
+            force_range_controller = False
         if supported & fan.SUPPORT_DIRECTION:
             yield AlexaModeController(
                 self.entity, instance=f"{fan.DOMAIN}.{fan.ATTR_DIRECTION}"
+            )
+            force_range_controller = False
+
+        # AlexaRangeController controls the Fan Speed Percentage.
+        # For fans which only support on/off, no controller is added. This makes the
+        # fan impossible to turn on or off through Alexa, most likely due to a bug in Alexa.
+        # As a workaround, we add a range controller which can only be set to 0% or 100%.
+        if force_range_controller or supported & fan.SUPPORT_SET_SPEED:
+            yield AlexaRangeController(
+                self.entity, instance=f"{fan.DOMAIN}.{fan.ATTR_PERCENTAGE}"
             )
 
         yield AlexaEndpointHealth(self.hass, self.entity)
@@ -569,7 +605,7 @@ class MediaPlayerCapabilities(AlexaEntity):
     def default_display_categories(self):
         """Return the display categories for this entity."""
         device_class = self.entity.attributes.get(ATTR_DEVICE_CLASS)
-        if device_class == media_player.DEVICE_CLASS_SPEAKER:
+        if device_class == media_player.MediaPlayerDeviceClass.SPEAKER:
             return [DisplayCategory.SPEAKER]
 
         return [DisplayCategory.TV]
@@ -610,8 +646,14 @@ class MediaPlayerCapabilities(AlexaEntity):
         if supported & media_player.const.SUPPORT_PLAY_MEDIA:
             yield AlexaChannelController(self.entity)
 
-        if supported & media_player.const.SUPPORT_SELECT_SOUND_MODE:
-            inputs = AlexaInputController.get_valid_inputs(
+        # AlexaEqualizerController is disabled for denonavr
+        # since it blocks alexa from discovering any devices.
+        domain = entity_sources(self.hass).get(self.entity_id, {}).get("domain")
+        if (
+            supported & media_player.const.SUPPORT_SELECT_SOUND_MODE
+            and domain != "denonavr"
+        ):
+            inputs = AlexaEqualizerController.get_valid_inputs(
                 self.entity.attributes.get(media_player.const.ATTR_SOUND_MODE_LIST, [])
             )
             if len(inputs) > 0:
@@ -726,17 +768,20 @@ class BinarySensorCapabilities(AlexaEntity):
         """Return the type of binary sensor."""
         attrs = self.entity.attributes
         if attrs.get(ATTR_DEVICE_CLASS) in (
-            binary_sensor.DEVICE_CLASS_DOOR,
-            binary_sensor.DEVICE_CLASS_GARAGE_DOOR,
-            binary_sensor.DEVICE_CLASS_OPENING,
-            binary_sensor.DEVICE_CLASS_WINDOW,
+            binary_sensor.BinarySensorDeviceClass.DOOR,
+            binary_sensor.BinarySensorDeviceClass.GARAGE_DOOR,
+            binary_sensor.BinarySensorDeviceClass.OPENING,
+            binary_sensor.BinarySensorDeviceClass.WINDOW,
         ):
             return self.TYPE_CONTACT
 
-        if attrs.get(ATTR_DEVICE_CLASS) == binary_sensor.DEVICE_CLASS_MOTION:
+        if attrs.get(ATTR_DEVICE_CLASS) == binary_sensor.BinarySensorDeviceClass.MOTION:
             return self.TYPE_MOTION
 
-        if attrs.get(ATTR_DEVICE_CLASS) == binary_sensor.DEVICE_CLASS_PRESENCE:
+        if (
+            attrs.get(ATTR_DEVICE_CLASS)
+            == binary_sensor.BinarySensorDeviceClass.PRESENCE
+        ):
             return self.TYPE_PRESENCE
 
 

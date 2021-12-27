@@ -1,8 +1,11 @@
 """Support for monitoring a Sense energy sensor device."""
 import logging
 
-from homeassistant.components.binary_sensor import BinarySensorEntity
-from homeassistant.const import ATTR_ATTRIBUTION, DEVICE_CLASS_POWER
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+)
+from homeassistant.const import ATTR_ATTRIBUTION
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_registry import async_get_registry
@@ -101,7 +104,7 @@ class SenseDevice(BinarySensorEntity):
         return self._id
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Return the state attributes."""
         return {ATTR_ATTRIBUTION: ATTRIBUTION}
 
@@ -113,7 +116,7 @@ class SenseDevice(BinarySensorEntity):
     @property
     def device_class(self):
         """Return the device class of the binary sensor."""
-        return DEVICE_CLASS_POWER
+        return BinarySensorDeviceClass.POWER
 
     @property
     def should_poll(self):

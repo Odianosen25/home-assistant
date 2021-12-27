@@ -2,10 +2,7 @@
 import logging
 
 from homeassistant.components.binary_sensor import (
-    DEVICE_CLASS_BATTERY,
-    DEVICE_CLASS_CONNECTIVITY,
-    DEVICE_CLASS_POWER,
-    DEVICE_CLASS_WINDOW,
+    BinarySensorDeviceClass,
     BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
@@ -143,9 +140,9 @@ class TadoDeviceBinarySensor(TadoDeviceEntity, BinarySensorEntity):
     def device_class(self):
         """Return the class of this sensor."""
         if self.device_variable == "battery state":
-            return DEVICE_CLASS_BATTERY
+            return BinarySensorDeviceClass.BATTERY
         if self.device_variable == "connection state":
-            return DEVICE_CLASS_CONNECTIVITY
+            return BinarySensorDeviceClass.CONNECTIVITY
         return None
 
     @callback
@@ -183,6 +180,7 @@ class TadoZoneBinarySensor(TadoZoneEntity, BinarySensorEntity):
         self._unique_id = f"{zone_variable} {zone_id} {tado.home_id}"
 
         self._state = None
+        self._state_attributes = None
         self._tado_zone_data = None
 
     async def async_added_to_hass(self):
@@ -218,16 +216,21 @@ class TadoZoneBinarySensor(TadoZoneEntity, BinarySensorEntity):
     def device_class(self):
         """Return the class of this sensor."""
         if self.zone_variable == "early start":
-            return DEVICE_CLASS_POWER
+            return BinarySensorDeviceClass.POWER
         if self.zone_variable == "link":
-            return DEVICE_CLASS_CONNECTIVITY
+            return BinarySensorDeviceClass.CONNECTIVITY
         if self.zone_variable == "open window":
-            return DEVICE_CLASS_WINDOW
+            return BinarySensorDeviceClass.WINDOW
         if self.zone_variable == "overlay":
-            return DEVICE_CLASS_POWER
+            return BinarySensorDeviceClass.POWER
         if self.zone_variable == "power":
-            return DEVICE_CLASS_POWER
+            return BinarySensorDeviceClass.POWER
         return None
+
+    @property
+    def extra_state_attributes(self):
+        """Return the state attributes."""
+        return self._state_attributes
 
     @callback
     def _async_update_callback(self):
@@ -244,13 +247,17 @@ class TadoZoneBinarySensor(TadoZoneEntity, BinarySensorEntity):
             return
 
         if self.zone_variable == "power":
-            self._state = self._tado_zone_data.power
+            self._state = self._tado_zone_data.power == "ON"
 
         elif self.zone_variable == "link":
-            self._state = self._tado_zone_data.link
+            self._state = self._tado_zone_data.link == "ONLINE"
 
         elif self.zone_variable == "overlay":
             self._state = self._tado_zone_data.overlay_active
+            if self._tado_zone_data.overlay_active:
+                self._state_attributes = {
+                    "termination": self._tado_zone_data.overlay_termination_type
+                }
 
         elif self.zone_variable == "early start":
             self._state = self._tado_zone_data.preparation
@@ -260,3 +267,4 @@ class TadoZoneBinarySensor(TadoZoneEntity, BinarySensorEntity):
                 self._tado_zone_data.open_window
                 or self._tado_zone_data.open_window_detected
             )
+            self._state_attributes = self._tado_zone_data.open_window_attr

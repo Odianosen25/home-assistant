@@ -1,4 +1,5 @@
 """Test against characteristics captured from a eufycam."""
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from tests.components.homekit_controller.common import (
     Helper,
@@ -12,7 +13,7 @@ async def test_eufycam_setup(hass):
     accessories = await setup_accessories_from_file(hass, "anker_eufycam.json")
     config_entry, pairing = await setup_test_accessories(hass, accessories)
 
-    entity_registry = await hass.helpers.entity_registry.async_get_registry()
+    entity_registry = er.async_get(hass)
 
     # Check that the camera is correctly found and set up
     camera_id = "camera.eufycam2_0000"
@@ -32,13 +33,14 @@ async def test_eufycam_setup(hass):
     assert camera_state.state == "idle"
     assert camera_state.attributes["supported_features"] == 0
 
-    device_registry = await hass.helpers.device_registry.async_get_registry()
+    device_registry = dr.async_get(hass)
 
     device = device_registry.async_get(camera.device_id)
     assert device.manufacturer == "Anker"
     assert device.name == "eufyCam2-0000"
     assert device.model == "T8113"
     assert device.sw_version == "1.6.7"
+    assert device.hw_version == "1.0.0"
 
     # These cameras are via a bridge, so via should be set
     assert device.via_device_id is not None
